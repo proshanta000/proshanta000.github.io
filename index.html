@@ -13,7 +13,276 @@
             font-family: 'Noto Sans Bengali', 'Inter', sans-serif;
             background-color: #f0f4f8; /* Light blue-grey background */
             color: #334155; /* Dark slate text */
+        }<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>মেশিন লার্নিং</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles for active tab and general aesthetics */
+        body {
+            font-family: 'Noto Sans Bengali', 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light blue-grey background */
+            color: #334155; /* Dark slate text */
         }
+        .tab-button {
+            @apply px-6 py-3 text-lg font-medium rounded-t-lg transition-colors duration-200 ease-in-out cursor-pointer;
+            @apply bg-gray-200 text-gray-700 hover:bg-gray-300;
+            border-bottom: 3px solid transparent;
+        }
+        .tab-button.active {
+            @apply bg-white text-blue-700 shadow-md;
+            border-color: #3b82f6; /* Blue border for active tab */
+        }
+        .tab-content {
+            @apply p-8 bg-white rounded-b-lg shadow-lg;
+            display: none; /* Hidden by default */
+        }
+        .tab-content.active {
+            display: block; /* Shown when active */
+        }
+        /* Specific styling for rounded corners on inner elements */
+        .card {
+            @apply rounded-xl shadow-lg bg-white p-6;
+        }
+        .button {
+            @apply px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200 ease-in-out;
+        }
+        /* Styling for the overall container to be centered and responsive */
+        .container-wrapper {
+            max-width: 1200px; /* Max width for larger screens */
+            width: 95%; /* Fluid width for responsiveness */
+        }
+
+        /* Dropdown specific styles */
+        .dropdown-menu {
+            @apply absolute bg-blue-700 text-white rounded-md shadow-lg py-2 z-10;
+            min-width: 160px; /* Ensures sufficient width for menu items */
+            left: 50%; /* Center the dropdown with respect to its parent */
+            transform: translateX(-50%); /* Adjust for perfect centering */
+            top: calc(100% + 5px); /* Position below the trigger with a small gap */
+
+            /* Initial state for transition: hidden, no height, no opacity */
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden; /* Hide content that exceeds max-height during transition */
+            visibility: hidden; /* Completely hide the element */
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out, visibility 0.3s ease-out;
+        }
+
+        /* State when active (hover or click) */
+        .dropdown:hover .dropdown-menu,
+        .dropdown-menu.active {
+            max-height: 200px; /* A value large enough to show all content */
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .dropdown-menu a {
+            @apply block px-4 py-2 hover:bg-blue-800 transition-colors duration-200;
+        }
+		/* Custom Keyframe Animations for Icons - These must remain in a <style> block */
+        @keyframes bounce-left {
+            0%, 100% {
+                transform: translateX(0);
+            }
+            50% {
+                transform: translateX(-8px); /* Moves 8px left */
+            }
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-8px); /* Floats 8px up */
+            }
+        }
+
+        /* Applying the custom animations with custom classes for readability */
+        .animate-custom-bounce-left {
+            animation: bounce-left 2s infinite ease-in-out;
+        }
+
+        .animate-custom-float {
+            animation: float 3s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+    <!-- Header Section -->
+    <header style="position: fixed; top: 0; left: 0; width: 100%; background-image: linear-gradient(to right, #14B8A6, #0EA5E9); color: #ffffff; padding: 1rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); z-index: 50;">
+    <div class="container mx-auto flex justify-center items-center">
+        <!-- Left Icon: Magnifying Glass with bounce animation -->
+        <div class="mr-4 hidden md:block animate-custom-bounce-left">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; opacity: 0.8;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+        </div>
+
+        <!-- Main Header Title -->
+        <h1 style="font-size: 1.5rem; font-weight: 600; letter-spacing: -0.025em; text-align: center;">
+            <!-- md:text-3xl class remains for responsiveness -->
+            <span class="rounded-md" style="padding: 0.25rem 0.75rem; text-shadow: 0 0 5px rgba(255, 255, 255, 0.8);">মেশিন লার্নিং গাইড</span>
+        </h1>
+
+        <!-- Right Icon: Academic Cap with float animation -->
+        <div class="ml-4 hidden md:block animate-custom-float">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; opacity: 0.8;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347M6.75 18.485a60.436 60.436 0 008.077 0C15.397 16.944 17.106 15.772 18 14.15c-1.391-.576-2.78-1.149-4.262-1.72a49.129 49.129 0 00-4.464-.98c-1.463-.197-2.926-.39-4.39-.58zM16.862 7.348c2.244 0 4.067-2.015 4.067-4.475 0-2.46-1.823-4.475-4.067-4.475-1.921 0-3.518 1.45-3.9 3.32a.867.867 0 01-1.399.642 7.726 7.726 0 00-2.387 1.341A3.868 3.868 0 005.166 7.02c-2.487.493-3.003 2.115-1.385 4.363A11.954 11.954 0 0110 12.39c.645-0.108 1.395-.297 2.228-.477z" />
+            </svg>
+        </div>
+    </div>
+</header>
+
+    <!-- Main Content Section -->
+    <main class="flex-grow py-12 px-4">
+        <div class="container-wrapper mx-auto card p-8">
+            <h2 class="text-5xl font-extrabold text-center text-blue-800 mb-8 leading-tight">
+                মেশিন লার্নিং
+            </h2>
+            <p class="text-xl text-center text-gray-600 mb-10 leading-relaxed">
+                মেশিন লার্নিং হলো কৃত্রিম বুদ্ধিমত্তার একটি শাখা যা কম্পিউটারকে ডেটা থেকে শিখতে এবং ভবিষ্যৎ অনুমান করতে সক্ষম করে তোলে। এর মাধ্যমে কম্পিউটার মানুষের হস্তক্ষেপ ছাড়াই সিদ্ধান্ত নিতে পারে।
+            </p>
+
+            <!-- Tab Navigation -->
+            <div class="flex justify-center flex-wrap gap-2 md:gap-4 mb-4" id="tab-buttons">
+                <button class="tab-button active" data-tab="intro">পরিচিতি</button>
+                <button class="tab-button" data-tab="types">প্রকারভেদ</button>
+                <button class="tab-button" data-tab="applications">ব্যবহার</button>
+                <button class="tab-button" data-tab="future">ভবিষ্যৎ</button>
+            </div>
+
+            <!-- Tab Content Areas -->
+            <div id="tab-contents">
+                <!-- Intro Tab Content -->
+                <div id="intro" class="tab-content active">
+                    <h3 class="text-3xl font-semibold text-blue-700 mb-4">মেশিন লার্নিং পরিচিতি</h3>
+                    <p class="text-lg text-gray-700 leading-relaxed">
+                        মেশিন লার্নিং (ML) ডেটা বিশ্লেষণের একটি গুরুত্বপূর্ণ পদ্ধতি। এটি কম্পিউটার সিস্টেমকে সুনির্দিষ্টভাবে প্রোগ্রাম না করেই ডেটা প্যাটার্ন থেকে স্বয়ংক্রিয়ভাবে শিখতে এবং উন্নত হতে সাহায্য করে। এর মূল লক্ষ্য হলো এমন অ্যালগরিদম তৈরি করা যা ডেটা ইনপুট নিয়ে একটি মডেল তৈরি করতে পারে এবং সেই মডেল ব্যবহার করে নতুন ডেটার উপর ভবিষ্যদ্বাণী বা সিদ্ধান্ত নিতে পারে। উদাহরণস্বরূপ, অনলাইন শপিং ওয়েবসাইটে পণ্য সুপারিশ, ইমেল স্প্যাম ফিল্টারিং এবং মুখের স্বীকৃতি সিস্টেমে ML ব্যবহার করা হয়।
+                    </p>
+                </div>
+
+                <!-- Types Tab Content -->
+                <div id="types" class="tab-content">
+                    <h3 class="text-3xl font-semibold text-blue-700 mb-4">প্রকারভেদ</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="card">
+                            <h4 class="text-2xl font-medium text-gray-800 mb-2">১. সুপারভাইজড লার্নিং</h4>
+                            <p class="text-base text-gray-700">
+                                লেবেলযুক্ত ডেটা ব্যবহার করে মডেলকে প্রশিক্ষণ দেওয়া হয়। এখানে ইনপুট ডেটা এবং এর সঠিক আউটপুট উভয়ই সরবরাহ করা হয়। উদাহরণ: ক্লাসিফিকেশন (যেমন - স্প্যাম সনাক্তকরণ) এবং রিগ্রেশন (যেমন - বাড়ির দামের পূর্বাভাস)।
+                            </p>
+                        </div>
+                        <div class="card">
+                            <h4 class="text-2xl font-medium text-gray-800 mb-2">২. আনসুপারভাইজড লার্নিং</h4>
+                            <p class="text-base text-gray-700">
+                                লেবেলবিহীন ডেটা ব্যবহার করে মডেলকে প্রশিক্ষণ দেওয়া হয়। এখানে মডেলকে ডেটার মধ্যে লুকানো প্যাটার্ন বা কাঠামো খুঁজে বের করতে হয়। উদাহরণ: ক্লাস্টারিং (যেমন - গ্রাহক বিভাজন) এবং অ্যাসোসিয়েশন (যেমন - মার্কেট বাস্কেট বিশ্লেষণ)।
+                            </p>
+                        </div>
+                        <div class="card">
+                            <h4 class="text-2xl font-medium text-gray-800 mb-2">৩. রিইনফোর্সমেন্ট লার্নিং</h4>
+                            <p class="text-base text-gray-700">
+                                এখানে একটি এজেন্ট একটি পরিবেশে কাজ করে এবং তার কাজের ফলাফলের উপর ভিত্তি করে পুরষ্কার বা শাস্তি পায়। এজেন্ট তার সর্বোচ্চ পুরষ্কার পাওয়ার জন্য সবচেয়ে ভালো পদক্ষেপটি শিখতে চেষ্টা করে। উদাহরণ: রোবোটিক্স এবং গেমিং।
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Applications Tab Content -->
+                <div id="applications" class="tab-content">
+                    <h3 class="text-3xl font-semibold text-blue-700 mb-4">বিভিন্ন ক্ষেত্রে ব্যবহার</h3>
+                    <ul class="list-disc pl-6 space-y-3 text-lg text-gray-700">
+                        <li><strong>চিকিৎসা:</strong> রোগ নির্ণয়, নতুন ঔষধ আবিষ্কার, ব্যক্তিগতকৃত চিকিৎসা পরিকল্পনা।</li>
+                        <li><strong>অর্থনীতি:</strong> স্টক মার্কেটের পূর্বাভাস, জালিয়াতি সনাক্তকরণ, ক্রেডিট স্কোরিং।</li>
+                        <li><strong>স্বয়ংচালিত গাড়ি:</strong> স্বয়ংক্রিয় ড্রাইভিং সিস্টেম, ট্র্যাফিক জ্যামের পূর্বাভাস।</li>
+                        <li><strong>ব্যক্তিগত সহকারী:</strong> ভয়েস অ্যাসিস্ট্যান্ট (যেমন - Google Assistant, Siri), চ্যাটবট।</li>
+                        <li><strong>কৃষি:</strong> ফসল ফলন পূর্বাভাস, রোগ সনাক্তকরণ, সেচ ব্যবস্থাপনা।</li>
+                        <li><strong>শিক্ষা:</strong> ব্যক্তিগতকৃত শিক্ষার পথ, শিক্ষার্থীদের কর্মক্ষমতা বিশ্লেষণ।</li>
+                    </ul>
+                </div>
+
+                <!-- Future Tab Content -->
+                <div id="future" class="tab-content">
+                    <h3 class="text-3xl font-semibold text-blue-700 mb-4">মেশিন লার্নিং এর ভবিষ্যৎ</h3>
+                    <p class="text-lg text-gray-700 leading-relaxed">
+                        মেশিন লার্নিং প্রযুক্তির ভবিষ্যৎ অত্যন্ত উজ্জ্বল এবং সম্ভাবনাময়। এটি স্বাস্থ্যসেবা, স্বয়ংক্রিয় পরিবহন, শিক্ষা এবং পরিবেশ ব্যবস্থাপনার মতো বিভিন্ন খাতে বিপ্লব ঘটাতে চলেছে। কোয়ান্টাম মেশিন লার্নিং (QML) এবং স্বয়ংক্রিয় ML (AutoML) এর মতো নতুন ক্ষেত্রগুলি আরও দ্রুত এবং দক্ষ ML মডেল তৈরির পথ খুলে দিচ্ছে। তবে ডেটার গোপনীয়তা, অ্যালগরিদমের পক্ষপাতিত্ব এবং নৈতিক দিকগুলি ভবিষ্যৎ চ্যালেঞ্জ হিসেবে থাকবে, যা সমাধানের জন্য গবেষণা ও নীতি নির্ধারণের প্রয়োজন হবে। ML মানবজাতির জন্য নতুন সুযোগ তৈরি করবে এবং আমাদের জীবনযাত্রার মান উন্নত করবে বলে আশা করা যায়।
+                    </p>
+                    
+                </div>
+            </div>
+			<div style="padding-top: 30px; display: flex; justify-content: center;">
+				<a href="saus.html" style="text-decoration: none;">
+				<button style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;" onmouseover="this.style.backgroundColor='#1d4ed8'; this.style.transform='translateY(-2px)';" onmouseout="this.style.backgroundColor='#2563eb'; this.style.transform='translateY(0)';">
+				বিস্তারিত ধারনা
+				</button>
+                </a>
+			</div>	
+        </div>
+    </main>
+
+    <!-- Footer Section -->
+    <footer class="bg-gray-800 text-white p-6 mt-12 shadow-inner">
+        <div class="container-wrapper mx-auto text-center text-sm">
+            <p>&copy; 2025 মেশিন লার্নিং হাব। সর্বস্বত্ব সংরক্ষিত।</p>
+            <div class="flex justify-center space-x-4 mt-2">
+                <a href="#" class="hover:text-gray-300 transition-colors duration-200">গোপনীয়তা নীতি</a>
+                <a href="#" class="hover:text-gray-300 transition-colors duration-200">ব্যবহারের শর্তাবলী</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // JavaScript for tab functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabContents = document.querySelectorAll('.tab-content');
+            const resourcesDropdown = document.getElementById('resourcesDropdown');
+            const dropdownMenu = document.querySelector('.dropdown-menu');
+
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    // Remove active class from all buttons and contents
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabContents.forEach(content => content.classList.remove('active'));
+
+                    // Add active class to the clicked button
+                    button.classList.add('active');
+
+                    // Get the target tab ID from data-tab attribute
+                    const targetTabId = button.dataset.tab;
+                    const targetTabContent = document.getElementById(targetTabId);
+
+                    // Add active class to the corresponding content
+                    if (targetTabContent) {
+                        targetTabContent.classList.add('active');
+                    }
+                });
+            });
+
+            // Toggle dropdown visibility on click for better mobile/tablet experience
+            resourcesDropdown.addEventListener('click', (event) => {
+                event.preventDefault(); // Prevent default link behavior
+                // Toggle the 'active' class which controls the transition
+                dropdownMenu.classList.toggle('active');
+            });
+
+            // Close dropdown if clicked outside
+            document.addEventListener('click', (event) => {
+                // Check if the click was outside the dropdown button and the dropdown menu itself
+                if (!resourcesDropdown.contains(event.target) && !dropdownMenu.contains(event.target)) {
+                    dropdownMenu.classList.remove('active'); // Remove 'active' class to hide the dropdown
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
         .tab-button {
             @apply px-6 py-3 text-lg font-medium rounded-t-lg transition-colors duration-200 ease-in-out cursor-pointer;
             @apply bg-gray-200 text-gray-700 hover:bg-gray-300;
