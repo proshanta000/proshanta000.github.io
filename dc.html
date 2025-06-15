@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ইন্টারেক্টিভ ডিসিশন ট্রি ক্লাসিফায়ার</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" xintegrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI76/y2JTapbKCMKrqDhVpIENB" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js" xintegrity="sha384-X/XCfMm41YSfkJfxwcqcZQLpTsEFfs4UuMznY6krLQSdSITd08SRqGNWsoRTGjJun" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js" xintegrity="sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR" crossorigin="anonymous"></script>
+
+    <!-- Chosen Palette: Scholarly Forest -->
+    <!-- Application Structure Plan: The application is designed as an interactive learning tool. It features a prominent "Interactive Demo" as the initial view to encourage hands-on exploration before diving into theory. A left-sidebar navigation allows easy switching between the demo and collapsible accordion sections for "Theory & Math", "Applications", and "Evaluation". This structure prioritizes user engagement and intuitive discovery, breaking down the complex report content into manageable, on-demand sections to avoid information overload and enhance learning retention. -->
+    <!-- Visualization & Content Choices: 1. Decision Tree Splitting -> Goal: Visually demonstrate how a decision tree partitions data. -> Viz/Method: A Chart.js scatter plot paired with a dynamically rendered HTML tree structure. -> Interaction: Sliders for `max_depth` and `min_samples_leaf` allow users to control the tree's complexity. As sliders are adjusted, the decision tree logic (a simplified CART algorithm in JS) re-builds the tree, and the changes are reflected in both the visual tree diagram and as colored decision boundaries on the scatter plot. -> Justification: This provides immediate, tangible feedback, connecting abstract hyperparameters to the concrete structure of the model and its classification behavior. 2. Theoretical Content -> Goal: Present detailed text from the source report in an organized way. -> Viz/Method: HTML/JS accordions. -> Interaction: Click-to-expand. -> Justification: Manages cognitive load by hiding dense information until requested, making the learning process less intimidating. KaTeX is used for clear math rendering. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+            color: #0f172a; /* slate-900 */
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+        
+        .katex { font-size: 1.1em !important; }
+        .nav-link {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .nav-link.active {
+            color: #047857; /* emerald-700 */
+            background-color: #d1fae5; /* emerald-100 */
+            font-weight: 600;
+        }
+        .nav-link:not(.active):hover {
+            background-color: #f1f5f9; /* slate-100 */
+        }
+        .content-section { display: none; }
+        .content-section.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .accordion-button { transition: background-color 0.2s ease-in-out; }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-in-out, padding 0.4s ease-in-out;
+            padding: 0 1.5rem;
+        }
+        .chart-container {
+            position: relative;
+            height: 450px;
+            max-height: 60vh;
+            width: 100%;
+        }
+        .tree-viz ul {
+            padding-left: 20px;
+            position: relative;
+        }
+        .tree-viz li {
+            position: relative;
+            list-style-type: none;
+            padding: 5px 0;
+        }
+        .tree-viz li::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -15px;
+            border-left: 1px solid #94a3b8; /* slate-400 */
+            width: 15px;
+            height: 100%;
+        }
+        .tree-viz li:last-child::before {
+            height: 20px;
+        }
+        .tree-viz li::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: -15px;
+            border-top: 1px solid #94a3b8;
+            width: 15px;
+            height: 100%;
+        }
+        .tree-node {
+            background-color: #f1f5f9; /* slate-100 */
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0; /* slate-200 */
+            display: inline-block;
+        }
+        .leaf-node {
+            background-color: #d1fae5; /* emerald-100 */
+            border-color: #a7f3d0; /* emerald-200 */
+            color: #065f46; /* emerald-800 */
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="flex flex-col md:flex-row min-h-screen bg-slate-50">
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-80 bg-white border-r border-slate-200 flex-shrink-0 p-4">
+            <header class="text-center mb-6 pt-4">
+                <h1 class="text-2xl font-bold text-slate-800">মেশিন লার্নিং গাইড</h1>
+                <p class="text-slate-600 text-sm mt-1">ডিসিশন ট্রি</p>
+            </header>
+            <div style="margin-top: 20px;">
+                    <a href="index.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="index.html">হোম
+                    </a>
+            </div>
+            <div style="margin-bottom: 20px;">
+                    <a href="saus.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="saus.html">প্রাম্ভিক ধারনা
+                    </a>
+            </div>
+
+            <nav id="main-nav" class="flex flex-col space-y-1">
+                <a class="nav-link active py-3 px-4 rounded-md" data-target="interactive_demo">ডিসিশন ট্রি</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="theory">থিওরি ও গণিত</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="applications">ব্যবহারিক প্রয়োগ</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="evaluation">মডেল মূল্যায়ন</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+            <!-- Interactive Demo Section -->
+            <section id="interactive_demo" class="content-section active">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                    <h2 class="text-2xl font-bold mb-2 text-slate-800">ডিসিশন ট্রি ডেমো</h2>
+                    <p class="text-slate-600 mb-4">
+                        হাইপারপ্যারামিটার পরিবর্তন করে দেখুন কিভাবে ডিসিশন ট্রি এবং এর সিদ্ধান্ত সীমানা পরিবর্তিত হয়। এটি আপনাকে ওভারফিটিং এবং আন্ডারফিটিং এর ধারণা বুঝতে সাহায্য করবে।
+                    </p>
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+                        <!-- Left Column: Controls and Tree Viz -->
+                        <div class="space-y-6">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg border">
+                                <div>
+                                    <label for="maxDepthSlider" class="block font-medium text-slate-700">সর্বোচ্চ গভীরতা: <span id="maxDepthValue" class="font-bold text-emerald-700 text-lg">3</span></label>
+                                    <input type="range" id="maxDepthSlider" min="1" max="10" value="3" step="1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                                </div>
+                                <div>
+                                    <label for="minSamplesSlider" class="block font-medium text-slate-700">পাতার সর্বনিম্ন নমুনা: <span id="minSamplesValue" class="font-bold text-emerald-700 text-lg">5</span></label>
+                                    <input type="range" id="minSamplesSlider" min="1" max="20" value="5" step="1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                                </div>
+                            </div>
+                            <button id="regenDataBtn" class="w-full bg-emerald-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-emerald-700 transition">নতুন ডেটা জেনারেট করুন</button>
+                            
+                            <div class="bg-white p-4 rounded-md border">
+                               <h3 class="font-semibold text-slate-800 mb-2">ডিসিশন ট্রি কাঠামো</h3>
+                               <div id="tree-container" class="tree-viz text-sm overflow-auto max-h-96"></div>
+                           </div>
+                        </div>
+
+                        <!-- Right Column: Chart -->
+                        <div class="chart-container">
+                            <canvas id="decisionTreeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Other sections will be rendered dynamically -->
+            <section id="theory" class="content-section"></section>
+            <section id="applications" class="content-section"></section>
+            <section id="evaluation" class="content-section"></section>
+        </main>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const contentData = {
+        theory: {
+            title: "থিওরি ও গণিত",
+            sections: [
+                {
+                    title: "ডিসিশন ট্রি পরিচিতি",
+                    content: `<p>ডিসিশন ট্রি হলো একটি সুপারভাইজড মেশিন লার্নিং অ্যালগরিদম যা শ্রেণীকরণ এবং রিগ্রেশন উভয় সমস্যার জন্যই ব্যবহৃত হয়। এটি একটি ট্রি-সদৃশ কাঠামো তৈরি করে, যেখানে অভ্যন্তরীণ নোডগুলি ডেটার ফিচারগুলির উপর পরীক্ষা করে, এবং লিফ নোডগুলি চূড়ান্ত সিদ্ধান্ত ধারণ করে। এই কাঠামোটি মানুষের সিদ্ধান্ত গ্রহণের প্রক্রিয়াকে অনুকরণ করে, যা এটিকে বুঝতে এবং ব্যাখ্যা করতে সহজ করে তোলে।</p>`
+                },
+                {
+                    title: "গাণিতিক ভিত্তি: স্প্লিটিং ক্রাইটেরিয়া",
+                    content: `
+                        <p>একটি নোডকে বিভক্ত করার জন্য সর্বোত্তম ফিচার এবং থ্রেশহোল্ড নির্বাচন করার জন্য বিভিন্ন মেট্রিক ব্যবহার করা হয়, যা নোডের 'অবিশুদ্ধতা' (impurity) পরিমাপ করে।</p>
+                        <h4 class="mt-4 font-semibold">গিনি ইম্পিউরিটি (Gini Impurity)</h4>
+                        <p>এটি ডেটাসেটের মিশ্রণ বা বৈচিত্র্য পরিমাপ করে। একটি বিশুদ্ধ নোডের গিনি ইম্পিউরিটি 0 হয়।</p>
+                        <p class="my-2"><b>সূত্র:</b> $G = 1 - \\sum_{i=1}^{C} (p_i)^2$</p>
+                        <h4 class="mt-4 font-semibold">এন্ট্রপি এবং ইনফরমেশন গেইন</h4>
+                        <p>এন্ট্রপি ডেটাসেটের বিশৃঙ্খলা বা অনিশ্চয়তা পরিমাপ করে। ইনফরমেশন গেইন হলো একটি স্প্লিটের পরে এন্ট্রপির হ্রাস। অ্যালগরিদম সর্বাধিক ইনফরমেশন গেইন প্রদানকারী স্প্লিটটি নির্বাচন করে।</p>
+                        <p class="my-2"><b>এন্ট্রপির সূত্র:</b> $H = -\\sum_{i=1}^{C} p_i \\log_2(p_i)$</p>
+                    `
+                },
+                {
+                    title: "ট্রি প্রুনিং এবং হাইপারপ্যারামিটার",
+                    content: `
+                       <p>ওভারফিটিং প্রতিরোধ করার জন্য ট্রি প্রুনিং (শাখা ছাঁটাই) এবং হাইপারপ্যারামিটার টিউনিং অপরিহার্য।</p>
+                       <div class="overflow-x-auto mt-4">
+                        <table class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">হাইপারপ্যারামিটার</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">ব্যাখ্যা</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-slate-200">
+                                <tr><td class="px-4 py-2 font-medium">max_depth</td><td class="px-4 py-2">ট্রির সর্বোচ্চ গভীরতা নির্ধারণ করে।</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">min_samples_split</td><td class="px-4 py-2">একটি নোড বিভক্ত করার জন্য সর্বনিম্ন নমুনার সংখ্যা।</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">min_samples_leaf</td><td class="px-4 py-2">একটি লিফ নোডে থাকার জন্য সর্বনিম্ন নমুনার সংখ্যা।</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">criterion</td><td class="px-4 py-2">স্প্লিটিং ক্রাইটেরিয়া ('gini' বা 'entropy')।</td></tr>
+                            </tbody>
+                        </table>
+                        </div>
+                    `
+                }
+            ]
+        },
+        applications: {
+            title: "ব্যবহারিক প্রয়োগ",
+            sections: [
+                {
+                    title: "বাস্তব-বিশ্বের ব্যবহার",
+                    content: `
+                        <div class="grid md:grid-cols-2 gap-4 mt-4">
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">ঋণ ঝুঁকি মূল্যায়ন</h4><p class="text-sm text-slate-600">আবেদনকারীর তথ্যের উপর ভিত্তি করে ঋণের ঝুঁকি শ্রেণীবদ্ধ করা।</p></div>
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">মেডিকেল রোগ নির্ণয়</h4><p class="text-sm text-slate-600">রোগীর লক্ষণের উপর ভিত্তি করে রোগ নির্ণয় করা।</p></div>
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">গ্রাহক চর্ন পূর্বাভাস</h4><p class="text-sm text-slate-600">কোন গ্রাহকরা পরিষেবা ত্যাগ করতে পারে তা পূর্বাভাস দেওয়া।</p></div>
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">সেন্টিমেন্ট বিশ্লেষণ</h4><p class="text-sm text-slate-600">পাঠ্যের অনুভূতি (ইতিবাচক/নেতিবাচক) নির্ধারণ করা।</p></div>
+                        </div>
+                    `
+                }
+            ]
+        },
+        evaluation: {
+            title: "মডেল মূল্যায়ন মেট্রিক্স",
+            sections: [
+                {
+                    title: "শ্রেণীকরণ এবং রিগ্রেশন মেট্রিক্স",
+                    content: `
+                        <p>ডিসিশন ট্রি মডেলের পারফরম্যান্স মূল্যায়নের জন্য বিভিন্ন মেট্রিক্স ব্যবহৃত হয়:</p>
+                        <h4 class="mt-4 font-semibold">শ্রেণীকরণ</h4>
+                        <ul class="list-disc list-inside space-y-1 mt-2">
+                           <li><b>Accuracy, Precision, Recall, F1-Score, ROC-AUC</b></li>
+                        </ul>
+                         <h4 class="mt-4 font-semibold">রিগ্রেশন</h4>
+                        <ul class="list-disc list-inside space-y-1 mt-2">
+                           <li><b>Mean Squared Error (MSE), Root Mean Squared Error (RMSE), R-squared (R²)</b></li>
+                        </ul>
+                    `
+                }
+            ]
+        }
+    };
+    
+    const mainNav = document.getElementById('main-nav');
+    
+    function buildAccordion(sections) {
+        return sections.map((section) => `
+            <div class="border border-slate-200 rounded-lg mb-3 bg-white shadow-sm">
+                <button class="accordion-button w-full text-left p-4 font-semibold text-lg text-slate-800 flex justify-between items-center hover:bg-slate-50" data-accordion-id="accordion-${section.title.replace(/\s/g, '')}">
+                    <span>${section.title}</span>
+                    <span class="transform transition-transform duration-300 text-emerald-600">▼</span>
+                </button>
+                <div id="accordion-${section.title.replace(/\s/g, '')}" class="accordion-content">
+                    <div class="p-4 pt-0 text-slate-700 leading-relaxed">${section.content}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderPage(targetId) {
+        const container = document.getElementById(targetId);
+        if (!container || !contentData[targetId]) return;
+        
+        const data = contentData[targetId];
+        let html = `<h2 class="text-3xl font-bold mb-6 text-slate-800">${data.title}</h2>`;
+        html += buildAccordion(data.sections);
+        container.innerHTML = html;
+        
+        container.querySelectorAll('.accordion-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const content = document.getElementById(button.dataset.accordionId);
+                const icon = button.querySelector('span:last-child');
+                const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+                
+                container.querySelectorAll('.accordion-content').forEach(el => {
+                    if (el !== content) {
+                         el.style.maxHeight = '0px';
+                         const otherButton = el.parentElement.querySelector('.accordion-button');
+                         if(otherButton) otherButton.querySelector('span:last-child').style.transform = 'rotate(0deg)';
+                    }
+                });
+
+                if (isOpen) {
+                    content.style.maxHeight = '0px';
+                    icon.style.transform = 'rotate(0deg)';
+                } else {
+                    content.style.maxHeight = content.scrollHeight + 30 + "px";
+                    icon.style.transform = 'rotate(180deg)';
+                }
+            });
+        });
+
+        if (window.renderMathInElement) {
+            renderMathInElement(container, {
+                delimiters: [ {left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false} ]
+            });
+        }
+    }
+
+    mainNav.addEventListener('click', (e) => {
+        if (e.target.tagName === 'A') {
+            const targetId = e.target.dataset.target;
+
+            mainNav.querySelectorAll('a').forEach(link => link.classList.remove('active'));
+            e.target.classList.add('active');
+            
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(targetId).classList.add('active');
+
+            if (targetId !== 'interactive_demo' && !document.getElementById(targetId).innerHTML) {
+                renderPage(targetId);
+            }
+        }
+    });
+
+    // --- Decision Tree Interactive Logic ---
+
+    const maxDepthSlider = document.getElementById('maxDepthSlider');
+    const minSamplesSlider = document.getElementById('minSamplesSlider');
+    const maxDepthValueSpan = document.getElementById('maxDepthValue');
+    const minSamplesValueSpan = document.getElementById('minSamplesValue');
+    const regenDataBtn = document.getElementById('regenDataBtn');
+    const treeContainer = document.getElementById('tree-container');
+    const chartCanvas = document.getElementById('decisionTreeChart');
+
+    let dtChart;
+    let trainingData = [];
+    
+    const COLORS = {
+        CLASS_0: 'rgba(239, 68, 68, 0.7)', // red
+        CLASS_1: 'rgba(37, 99, 235, 0.7)', // blue
+        BOUNDARY_0: 'rgba(254, 226, 226, 0.5)', // red-100
+        BOUNDARY_1: 'rgba(219, 234, 254, 0.5)', // blue-100
+    };
+
+    // Simplified CART Algorithm Implementation
+    function giniImpurity(groups, classes) {
+        const totalSize = groups.reduce((sum, group) => sum + group.length, 0);
+        let gini = 0.0;
+        for (const group of groups) {
+            if (group.length === 0) continue;
+            let score = 0.0;
+            for (const classVal of classes) {
+                const p = group.filter(row => row.class === classVal).length / group.length;
+                score += p * p;
+            }
+            gini += (1.0 - score) * (group.length / totalSize);
+        }
+        return gini;
+    }
+
+    function findBestSplit(dataset) {
+        const classes = [...new Set(dataset.map(row => row.class))];
+        let bestSplit = { gini: 999, index: -1, value: -1, groups: null };
+
+        for (let i = 0; i < 2; i++) { // For feature x (0) and y (1)
+            const featureValues = [...new Set(dataset.map(row => i === 0 ? row.x : row.y))];
+            for (const value of featureValues) {
+                const groups = [[], []]; // [left, right]
+                for (const row of dataset) {
+                    const featureVal = i === 0 ? row.x : row.y;
+                    if (featureVal < value) groups[0].push(row);
+                    else groups[1].push(row);
+                }
+                
+                const gini = giniImpurity(groups, classes);
+                if (gini < bestSplit.gini) {
+                    bestSplit = { gini, index: i, value, groups };
+                }
+            }
+        }
+        return bestSplit;
+    }
+
+    function toTerminal(group) {
+        const outcomes = group.map(row => row.class);
+        return outcomes.sort((a,b) => outcomes.filter(v => v===a).length - outcomes.filter(v => v===b).length).pop();
+    }
+    
+    function split(node, maxDepth, minSize, depth) {
+        const [left, right] = node.groups;
+        delete node.groups;
+
+        if (!left || !right) {
+            node.left = node.right = toTerminal(left.concat(right));
+            return;
+        }
+
+        if (depth >= maxDepth) {
+            node.left = toTerminal(left);
+            node.right = toTerminal(right);
+            return;
+        }
+
+        if (left.length <= minSize) {
+            node.left = toTerminal(left);
+        } else {
+            node.left = findBestSplit(left);
+            split(node.left, maxDepth, minSize, depth + 1);
+        }
+
+        if (right.length <= minSize) {
+            node.right = toTerminal(right);
+        } else {
+            node.right = findBestSplit(right);
+            split(node.right, maxDepth, minSize, depth + 1);
+        }
+    }
+
+    function buildTree(train, maxDepth, minSize) {
+        const root = findBestSplit(train);
+        split(root, maxDepth, minSize, 1);
+        return root;
+    }
+
+    function renderTreeHTML(node, depth = 0) {
+        if (typeof node !== 'object' || node === null) {
+            return `<li><span class="tree-node leaf-node">পূর্বাভাস: ক্লাস ${node}</span></li>`;
+        }
+        const feature = node.index === 0 ? 'X' : 'Y';
+        const condition = `${feature} < ${node.value.toFixed(2)}`;
+        let html = `<li><span class="tree-node">${condition}</span><ul>`;
+        html += renderTreeHTML(node.left, depth + 1);
+        html += renderTreeHTML(node.right, depth + 1);
+        html += `</ul></li>`;
+        return html;
+    }
+
+    // Chart and UI update logic
+    function generateData(count = 150) {
+        trainingData = [];
+        for (let i = 0; i < count; i++) {
+            let x, y, pointClass;
+            const isClass0 = Math.random() > 0.5;
+            if (isClass0) {
+                 // Cluster 1
+                 x = Math.random() * 4 + 1;
+                 y = Math.random() * 4 + 1;
+                 pointClass = 0;
+            } else {
+                 // Cluster 2
+                 x = Math.random() * 4 + 5;
+                 y = Math.random() * 4 + 5;
+                 pointClass = 1;
+            }
+             // Add some noise
+             if (Math.random() < 0.1) {
+                pointClass = 1 - pointClass;
+             }
+            trainingData.push({ x, y, class: pointClass });
+        }
+    }
+
+    function updateDecisionTree() {
+        const maxDepth = parseInt(maxDepthSlider.value);
+        const minSamples = parseInt(minSamplesSlider.value);
+        maxDepthValueSpan.textContent = maxDepth;
+        minSamplesValueSpan.textContent = minSamples;
+
+        const tree = buildTree(trainingData, maxDepth, minSamples);
+        
+        treeContainer.innerHTML = `<ul>${renderTreeHTML(tree)}</ul>`;
+        
+        // Update chart visualization
+        updateChartVisualization(tree);
+    }
+    
+    // Plugin to draw decision boundaries
+    const decisionBoundaryPlugin = {
+        id: 'decisionBoundary',
+        beforeDraw: (chart) => {
+            const { ctx, chartArea: { top, left, bottom, right }, scales: { x, y } } = chart;
+            const tree = chart.options.plugins.decisionBoundary.tree;
+            if (!tree) return;
+            
+            ctx.save();
+            
+            function drawNodeBoundary(node, bounds) {
+                 if (typeof node !== 'object' || node === null) {
+                    ctx.fillStyle = node === 0 ? COLORS.BOUNDARY_0 : COLORS.BOUNDARY_1;
+                    ctx.fillRect(
+                        x.getPixelForValue(bounds.xMin),
+                        y.getPixelForValue(bounds.yMax),
+                        x.getPixelForValue(bounds.xMax) - x.getPixelForValue(bounds.xMin),
+                        y.getPixelForValue(bounds.yMin) - y.getPixelForValue(bounds.yMax)
+                    );
+                    return;
+                }
+
+                const feature = node.index;
+                const value = node.value;
+                
+                const leftBounds = { ...bounds };
+                const rightBounds = { ...bounds };
+
+                if (feature === 0) { // Split on X
+                    leftBounds.xMax = Math.min(leftBounds.xMax, value);
+                    rightBounds.xMin = Math.max(rightBounds.xMin, value);
+                } else { // Split on Y
+                    leftBounds.yMax = Math.min(leftBounds.yMax, value);
+                    rightBounds.yMin = Math.max(rightBounds.yMin, value);
+                }
+                
+                drawNodeBoundary(node.left, leftBounds);
+                drawNodeBoundary(node.right, rightBounds);
+            }
+            
+            const initialBounds = { xMin: 0, xMax: 10, yMin: 0, yMax: 10 };
+            drawNodeBoundary(tree, initialBounds);
+            
+            ctx.restore();
+        }
+    };
+
+    function updateChartVisualization(tree) {
+        dtChart.data.datasets[0].data = trainingData;
+        dtChart.data.datasets[0].backgroundColor = trainingData.map(p => p.class === 0 ? COLORS.CLASS_0 : COLORS.CLASS_1);
+        dtChart.options.plugins.decisionBoundary.tree = tree;
+        dtChart.update();
+    }
+    
+    function initChart() {
+        generateData();
+        const ctx = chartCanvas.getContext('2d');
+        
+        Chart.register(decisionBoundaryPlugin);
+        
+        dtChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'প্রশিক্ষণ ডেটা',
+                    data: [],
+                    pointRadius: 6,
+                    borderWidth: 1,
+                    borderColor: 'rgba(0, 0, 0, 0.3)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { min: 0, max: 10, title: { display: true, text: 'ফিচার X' } },
+                    y: { min: 0, max: 10, title: { display: true, text: 'ফিচার Y' } }
+                },
+                plugins: {
+                    decisionBoundary: { tree: null },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `ক্লাস: ${context.raw.class}`
+                        }
+                    }
+                }
+            }
+        });
+        updateDecisionTree();
+    }
+    
+    // Event Listeners
+    maxDepthSlider.addEventListener('input', updateDecisionTree);
+    minSamplesSlider.addEventListener('input', updateDecisionTree);
+    regenDataBtn.addEventListener('click', () => {
+        generateData();
+        updateDecisionTree();
+    });
+
+    // Initial render
+    initChart();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>লিনিয়ার ও লজিস্টিক রিগ্রেশন</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" xintegrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI76/y2JTapbKCMKrqDhVpIENB" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js" xintegrity="sha384-X/XCfMm41YSfkJfxwcqcZQLpTsEFfs4UuMznY6krLQSdSITd08SRqGNWsoRTGjJun" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js" xintegrity="sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR" crossorigin="anonymous"></script>
+    <!-- Chosen Palette: Calm Academia -->
+    <!-- Application Structure Plan: The SPA is designed with a side-navigation for desktops and a top-bar for mobile, allowing users to easily switch between major topics: Introduction, Linear Regression, Logistic Regression, and Comparison. This non-linear, thematic structure is more engaging for learning than a simple document scroll. Each regression topic is broken down into interactive sections: 1) An interactive visualization to build intuition (e.g., adjusting a regression line and seeing the cost function change). 2) Clickable cards for core mathematical concepts. 3) A visually appealing gallery for real-world use cases. This modular, task-oriented design encourages exploration and hands-on learning, making complex concepts more digestible and memorable. -->
+    <!-- Visualization & Content Choices: Report Info -> Goal -> Viz/Presentation Method -> Interaction -> Justification. 1) Linear Regression Math -> Goal: Build intuition for 'best fit' -> Viz: Chart.js scatter plot with a line -> Interaction: Sliders for slope (m) and intercept (b) dynamically update the line and a real-time MSE calculation. Justification: Visually connects parameters to the model's error. 2) Logistic Regression Thresholding -> Goal: Understand Precision/Recall tradeoff -> Viz: Chart.js scatter plot with two classes and a confusion matrix display -> Interaction: A slider for the classification threshold (0-1) updates the decision boundary and all classification metrics (Accuracy, Precision, Recall, F1) in real-time. Justification: Makes the abstract concept of metric trade-offs tangible. 3) Core Concepts (Formulas, Parameters) -> Goal: Quick reference and detailed study -> Viz: HTML/Tailwind styled cards and tables -> Interaction: Click-to-expand sections. Justification: Reduces initial cognitive load while keeping details accessible. 4) Use Cases -> Goal: Connect theory to practice -> Viz: Icon-based grid of cards -> Interaction: Click to open a modal with details. Justification: More engaging than a simple list. All math is rendered using the KaTeX library. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Hind Siliguri', 'Inter', sans-serif;
+            background-color: #FDFBF5;
+            color: #3f3c3a;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+        
+        .katex { font-size: 1.1em; }
+
+        .nav-link {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .nav-link.active {
+            background-color: #EADDCA;
+            color: #3f3c3a;
+            font-weight: 600;
+        }
+        .nav-link:not(.active):hover {
+            background-color: #F5F0E8;
+        }
+
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+
+        .concept-card {
+            background-color: #FFFFFF;
+            border: 1px solid #EADDCA;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .concept-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 50vh;
+        }
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 300px;
+                max-height: 60vh;
+            }
+        }
+        
+        .slider-container {
+            background-color: #F5F0E8;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-64 bg-[#F5F0E8] border-r border-[#EADDCA]">
+            <div class="p-6">
+                <h1 class="text-2xl font-bold text-[#A7727D]">মেশিন লার্নিং গাইড</h1>
+                <p class="text-sm text-gray-600 mt-1">লিনিয়ার ও লজিস্টিক রিগ্রেশন</p>
+            </div>
+            <div style="margin-top: 20px;">
+                    <a href="index.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="index.html">হোম
+                    </a>
+            </div>
+            <div style="margin-bottom: 20px;">
+                    <a href="saus.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="saus.html">প্রাম্ভিক ধারনা
+                    </a>
+            </div>
+            <nav id="main-nav" class="flex md:flex-col p-2 space-x-2 md:space-x-0 md:space-y-2 overflow-x-auto">
+                <a class="nav-link active" data-target="intro">ভূমিকা</a>
+                <a class="nav-link" data-target="linear">লিনিয়ার রিগ্রেশন</a>
+                <a class="nav-link" data-target="logistic">লজিস্টিক রিগ্রেশন</a>
+                <a class="nav-link" data-target="comparison">তুলনা</a>
+                <a class="nav-link" data-target="conclusion">উপসংহার</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-8">
+            <!-- Introduction Section -->
+            <section id="intro" class="content-section active">
+                <div id="intro-content"></div>
+            </section>
+
+            <!-- Linear Regression Section -->
+            <section id="linear" class="content-section">
+                <div id="linear-intro"></div>
+                
+                <div class="mt-8 bg-white p-6 rounded-xl shadow-md border border-gray-200">
+                    <h3 class="text-2xl font-semibold mb-4 text-[#A7727D]">ইন্টারেক্টিভ লিনিয়ার রিগ্রেশন</h3>
+                    <p class="mb-4 text-gray-600">
+                        নিচের স্লাইডারগুলি ব্যবহার করে ঢাল (slope) এবং ইন্টারসেপ্ট (intercept) পরিবর্তন করে দেখুন কিভাবে "বেস্ট-ফিট" লাইন এবং মিন স্কোয়ার্ড এরর (MSE) পরিবর্তিত হয়। এটি আপনাকে লিনিয়ার রিগ্রেশন অ্যালগরিদমের মূল ধারণা বুঝতে সাহায্য করবে।
+                    </p>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+                        <div class="lg:col-span-2 chart-container">
+                            <canvas id="linearChart"></canvas>
+                        </div>
+                        <div class="space-y-4 slider-container">
+                            <div>
+                                <label for="slopeSlider" class="block font-medium text-gray-700">ঢাল (m): <span id="slopeValue">1</span></label>
+                                <input type="range" id="slopeSlider" min="-5" max="5" value="1" step="0.1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                            </div>
+                            <div>
+                                <label for="interceptSlider" class="block font-medium text-gray-700">ইন্টারসেপ্ট (b): <span id="interceptValue">1.5</span></label>
+                                <input type="range" id="interceptSlider" min="-5" max="5" value="1.5" step="0.1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                            </div>
+                            <div class="bg-[#EADDCA] p-3 rounded-lg text-center">
+                                <p class="font-semibold text-lg text-gray-800">মিন স্কোয়ার্ড এরর (MSE)</p>
+                                <p id="mseValue" class="text-2xl font-bold text-[#A7727D]">0.00</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="linear-math" class="mt-8"></div>
+                <div id="linear-params" class="mt-8"></div>
+                <div id="linear-hyperparams" class="mt-8"></div>
+                <div id="linear-usecases" class="mt-8"></div>
+                <div id="linear-metrics" class="mt-8"></div>
+            </section>
+
+            <!-- Logistic Regression Section -->
+            <section id="logistic" class="content-section">
+                <div id="logistic-intro"></div>
+
+                <div class="mt-8 bg-white p-6 rounded-xl shadow-md border border-gray-200">
+                    <h3 class="text-2xl font-semibold mb-4 text-[#A7727D]">ইন্টারেক্টিভ লজিস্টিক রিগ্রেশন</h3>
+                    <p class="mb-4 text-gray-600">
+                        এখানে দুটি ভিন্ন শ্রেণীর ডেটা দেখানো হয়েছে। স্লাইডার ব্যবহার করে ক্লাসিফিকেশন থ্রেশহোল্ড পরিবর্তন করে দেখুন কিভাবে মডেলের পারফরম্যান্স মেট্রিক্স (Accuracy, Precision, Recall) পরিবর্তিত হয়। এটি আপনাকে প্রিসিশন এবং রিকলের মধ্যেকার ট্রেড-অফ বুঝতে সাহায্য করবে।
+                    </p>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                        <div class="lg:col-span-2 chart-container">
+                             <canvas id="logisticChart"></canvas>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="slider-container">
+                                <label for="thresholdSlider" class="block font-medium text-gray-700">ক্লাসিফিকেশন থ্রেশহোল্ড: <span id="thresholdValue">0.5</span></label>
+                                <input type="range" id="thresholdSlider" min="0" max="1" value="0.5" step="0.01" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                            </div>
+                            <div id="confusionMatrix" class="bg-[#F5F0E8] p-4 rounded-lg">
+                                <h4 class="font-semibold text-center mb-2">পারফরম্যান্স মেট্রিক্স</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="logistic-math" class="mt-8"></div>
+                <div id="logistic-params" class="mt-8"></div>
+                <div id="logistic-hyperparams" class="mt-8"></div>
+                <div id="logistic-usecases" class="mt-8"></div>
+                <div id="logistic-metrics" class="mt-8"></div>
+            </section>
+
+            <!-- Comparison Section -->
+            <section id="comparison" class="content-section">
+                <div id="comparison-content"></div>
+            </section>
+
+            <!-- Conclusion Section -->
+            <section id="conclusion" class="content-section">
+                <div id="conclusion-content"></div>
+            </section>
+        </main>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const contentData = {
+        intro: {
+            title: "মেশিন লার্নিং পরিচিতি",
+            body: `
+                <p class="text-lg leading-relaxed mb-4">মেশিন লার্নিং, কৃত্রিম বুদ্ধিমত্তার একটি গুরুত্বপূর্ণ শাখা, কম্পিউটারকে পূর্ববর্তী অভিজ্ঞতা বা ইনপুট ডেটা থেকে শিখতে এবং ভবিষ্যতের পূর্বাভাস দিতে সক্ষম করে। এটি ডেটা বিশ্লেষণ করে, লুকানো প্যাটার্নগুলি আবিষ্কার করে এবং স্বয়ংক্রিয়ভাবে সিদ্ধান্ত বা ভবিষ্যদ্বাণী তৈরি করে, যেখানে কম্পিউটারকে স্পষ্টভাবে প্রোগ্রাম করার প্রয়োজন হয় না।</p>
+                <p class="text-lg leading-relaxed mb-4">এই ইন্টারেক্টিভ গাইডে, আমরা দুটি মৌলিক সুপারভাইজড লার্নিং অ্যালগরিদম—লিনিয়ার রিগ্রেশন এবং লজিস্টিক রিগ্রেশন—সম্পর্কে বিস্তারিতভাবে জানব। সুপারভাইজড লার্নিং-এ, অ্যালগরিদম লেবেলযুক্ত ডেটা থেকে শেখে, যেখানে প্রতিটি উদাহরণ তার সঠিক ফলাফল বা 'লেবেল' সহ যুক্ত থাকে।</p>
+                <div class="grid md:grid-cols-2 gap-6 mt-6">
+                    <div class="p-6 concept-card rounded-lg">
+                        <h3 class="text-xl font-semibold mb-2 text-[#A7727D]">লিনিয়ার রিগ্রেশন</h3>
+                        <p>একটি 'কন্টিনিউয়াস' বা অবিচ্ছিন্ন আউটপুট (যেমন, মূল্য বা তাপমাত্রা) ভবিষ্যদ্বাণী করার জন্য ব্যবহৃত হয়।</p>
+                    </div>
+                    <div class="p-6 concept-card rounded-lg">
+                        <h3 class="text-xl font-semibold mb-2 text-[#A7727D]">লজিস্টিক রিগ্রেশন</h3>
+                        <p>একটি 'ক্যাটাগরিক্যাল' বা শ্রেণীবদ্ধ বাইনারি ফলাফল (যেমন, হ্যাঁ/না বা স্প্যাম/নন-স্প্যাম) এর সম্ভাবনা ভবিষ্যদ্বাণী করে।</p>
+                    </div>
+                </div>
+                <p class="mt-6 text-lg">বাম দিকের নেভিগেশন ব্যবহার করে প্রতিটি বিষয় সম্পর্কে বিস্তারিত জানুন এবং ইন্টারেক্টিভ উদাহরণগুলির সাথে অনুশীলন করুন।</p>
+            `
+        },
+        linear: {
+            intro: `
+                <h2 class="text-4xl font-bold mb-4 text-[#A7727D]">লিনিয়ার রিগ্রেশন</h2>
+                <p class="text-lg leading-relaxed mb-4">লিনিয়ার রিগ্রেশন হলো একটি মৌলিক সুপারভাইজড মেশিন লার্নিং অ্যালগরিদম যা স্বাধীন ভেরিয়েবল (ফিচার) এবং একটি নির্ভরশীল ভেরিয়েবল (লেবেল) এর মধ্যে একটি রৈখিক সম্পর্ক স্থাপন করতে ব্যবহৃত হয়। এর প্রধান উদ্দেশ্য হলো একটি অবিচ্ছিন্ন পরিসরের মধ্যে মানগুলি ভবিষ্যদ্বাণী করা, যেমন বিক্রয়, মূল্য বা তাপমাত্রা, সেগুলিকে শ্রেণীতে বিভক্ত করার পরিবর্তে।</p>
+            `,
+            math: `
+                <h3 class="text-2xl font-semibold mb-4 text-[#A7727D]">গাণিতিক ভিত্তি এবং "বেস্ট ফিট" লাইন</h3>
+                <div class="space-y-4 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <p>লিনিয়ার রিগ্রেশন মডেলের গাণিতিক ভিত্তি একটি সরল সমীকরণ দ্বারা গঠিত, যা ডেটার মধ্যে রৈখিক সম্পর্ককে উপস্থাপন করে। সরল লিনিয়ার রিগ্রেশন মডেলের সমীকরণ হলো: $$\\hat{y} = a + bx$$</p>
+                    <p>এখানে $\\hat{y}$ হলো পূর্বাভাসিত মান, $a$ হলো ইন্টারসেপ্ট, এবং $b$ হলো ঢাল বা সহগ। "বেস্ট ফিট" লাইন খুঁজে বের করার জন্য অর্ডিনারি লিস্ট স্কোয়ার্স (OLS) পদ্ধতি ব্যবহার করা হয়, যা ডেটা পয়েন্ট এবং লাইনের মধ্যে উল্লম্ব দূরত্বের বর্গগুলির যোগফলকে ($\sum(y - \hat{y})^2$) ন্যূনতম করে।</p>
+                    <p>মডেলের ত্রুটি পরিমাপ করতে মিন স্কোয়ার্ড এরর (MSE) কস্ট ফাংশন ব্যবহৃত হয়: $$MSE = \\frac{1}{n} \\sum_{i=1}^{n}(y_i - \\hat{y}_i)^2$$</p>
+                    <p>গ্রেডিয়েন্ট ডিসেন্ট অপ্টিমাইজেশন অ্যালগরিদম ব্যবহার করে এই কস্ট ফাংশনটিকে ন্যূনতম করা হয়, যা পুনরাবৃত্তিমূলকভাবে মডেলের প্যারামিটারগুলি সামঞ্জস্য করে।</p>
+                </div>
+            `,
+            params: `
+                <h3 class="text-2xl font-semibold mb-4 mt-8 text-[#A7727D]">প্যারামিটার: সহগ এবং ইন্টারসেপ্ট</h3>
+                <div class="overflow-x-auto bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <p class="mb-4">মডেলের প্যারামিটারগুলি হলো সেই মান যা মডেল প্রশিক্ষণ ডেটা থেকে শেখে। লিনিয়ার রিগ্রেশনে, এই প্যারামিটারগুলি হলো ইন্টারসেপ্ট এবং সহগ (বা ওজন)।</p>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">প্যারামিটার</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">প্রতীক</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">গাণিতিক সংজ্ঞা</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ব্যবহারিক ব্যাখ্যা</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">ইন্টারসেপ্ট</td>
+                                <td class="px-6 py-4 whitespace-nowrap">$a$ বা $b$</td>
+                                <td class="px-6 py-4">যখন সমস্ত স্বাধীন ভেরিয়েবল শূন্য হয় তখন নির্ভরশীল ভেরিয়েবলের পূর্বাভাসিত মান।</td>
+                                <td class="px-6 py-4">নির্ভরশীল ভেরিয়েবলের বেসলাইন বা সূচনা বিন্দু যখন সমস্ত স্বাধীন ভেরিয়েবল শূন্য। উদাহরণস্বরূপ, শূন্য মার্কেটিং প্রচেষ্টায় প্রত্যাশিত বিক্রয়।</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">সহগ (Coefficient)</td>
+                                <td class="px-6 py-4 whitespace-nowrap">$b$ বা $w$</td>
+                                <td class="px-6 py-4">স্বাধীন ভেরিয়েবলের প্রতি ইউনিট পরিবর্তনে নির্ভরশীল ভেরিয়েবলের পূর্বাভাসিত মানের পরিবর্তন।</td>
+                                <td class="px-6 py-4">স্বাধীন ভেরিয়েবলের এক ইউনিট বৃদ্ধিতে নির্ভরশীল ভেরিয়েবলের গড় পরিবর্তন (অন্যান্য ভেরিয়েবল স্থির রেখে)। সম্পর্কের দিক (ধনাত্মক/ঋণাত্মক) এবং শক্তি নির্দেশ করে।</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `,
+            hyperparams: `
+                <h3 class="text-2xl font-semibold mb-4 mt-8 text-[#A7727D]">হাইপারপ্যারামিটার এবং টিউনিং</h3>
+                <div class="overflow-x-auto bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <p class="mb-4">হাইপারপ্যারামিটারগুলি হলো সেই কনফিগারেশন যা মডেল প্রশিক্ষণের আগে ম্যানুয়ালি সেট করা হয় এবং মডেলের পারফরম্যান্সকে প্রভাবিত করে।</p>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">হাইপারপ্যারামিটার</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ভূমিকা</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">টিউনিং পদ্ধতি</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">বিস্তারিত</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">লার্নিং রেট (Learning Rate)</td>
+                                <td class="px-6 py-4">অপ্টিমাইজেশন ধাপের আকার নিয়ন্ত্রণ করে।</td>
+                                <td class="px-6 py-4">গ্রিড সার্চ, র্যান্ডম সার্চ, ম্যানুয়াল টিউনিং।</td>
+                                <td class="px-6 py-4">মডেলকে কস্ট ফাংশনের সর্বনিম্ন বিন্দুতে পৌঁছাতে সাহায্য করে। খুব ছোট হলে প্রশিক্ষণে বেশি সময় লাগে, খুব বড় হলে অভিকেন্দ্রিত হতে ব্যর্থ হতে পারে।</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">ব্যাচ সাইজ (Batch Size)</td>
+                                <td class="px-6 py-4">ওজন আপডেট করার আগে প্রক্রিয়াকৃত উদাহরণের সংখ্যা।</td>
+                                <td class="px-6 py-4">গ্রিড সার্চ, র্যান্ডম সার্চ।</td>
+                                <td class="px-6 py-4">প্রশিক্ষণের গতি এবং স্থিতিশীলতাকে প্রভাবিত করে। ছোট ব্যাচ (SGD) গোলমেলে হতে পারে, বড় ব্যাচ (ফুল-ব্যাচ) ধীর হতে পারে।</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">ইপোকস (Epochs)</td>
+                                <td class="px-6 py-4">প্রশিক্ষণ সেটের প্রতিটি উদাহরণ মডেল কতবার প্রক্রিয়া করে।</td>
+                                <td class="px-6 py-4">ম্যানুয়াল টিউনিং, আর্লি স্টপিং।</td>
+                                <td class="px-6 py-4">মডেলকে ডেটা থেকে শেখার সুযোগের সংখ্যা। খুব বেশি হলে ওভারফিটিং হতে পারে, খুব কম হলে আন্ডারফিটিং হতে পারে।</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">রেগুলারাইজেশন (Regularization) (L1/L2)</td>
+                                <td class="px-6 py-4">মডেলের জটিলতা এবং ওভারফিটিং প্রতিরোধ।</td>
+                                <td class="px-6 py-4">গ্রিড সার্চ, র্যান্ডম সার্চ।</td>
+                                <td class="px-6 py-4">L1 (Lasso) অপ্রয়োজনীয় ফিচারগুলোর সহগকে শূন্য করে দেয় (ফিচার নির্বাচন)। L2 (Ridge) সহগগুলোর মান কমিয়ে দেয়, যা মডেলকে আরও সাধারণ করতে সাহায্য করে।</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `,
+            usecases: `
+                <h3 class="text-2xl font-semibold mb-4 mt-8 text-[#A7727D]">ব্যবহারিক প্রয়োগ</h3>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="p-6 concept-card rounded-lg">
+                        <h4 class="text-xl font-semibold mb-2">🏠 বাড়ির দামের পূর্বাভাস</h4>
+                        <p>বাড়ির আকার, অবস্থান, কক্ষের সংখ্যা ইত্যাদি ফিচারের উপর ভিত্তি করে তার মূল্য অনুমান করা।</p>
+                    </div>
+                    <div class="p-6 concept-card rounded-lg">
+                        <h4 class="text-xl font-semibold mb-2">📈 বিক্রয় পূর্বাভাস</h4>
+                        <p>ঐতিহাসিক ডেটা এবং বিজ্ঞাপন ব্যয়ের মতো ফিচারের উপর ভিত্তি করে ভবিষ্যতের বিক্রয় অনুমান করা।</p>
+                    </div>
+                    <div class="p-6 concept-card rounded-lg">
+                        <h4 class="text-xl font-semibold mb-2">🎓 পরীক্ষার স্কোর</h4>
+                        <p>একজন ছাত্রের পড়াশোনার সময়ের উপর ভিত্তি করে তার পরীক্ষার সম্ভাব্য স্কোর অনুমান করা।</p>
+                    </div>
+                </div>
+            `,
+            metrics: `
+                 <h3 class="text-2xl font-semibold mb-4 mt-8 text-[#A7727D]">মডেল মূল্যায়ন মেট্রিক্স</h3>
+                 <div class="overflow-x-auto bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">মেট্রিক</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ব্যাখ্যা</th>
+                            </tr>
+                        </thead>
+                         <tbody class="bg-white divide-y divide-gray-200">
+                            <tr><td class="px-6 py-4 whitespace-nowrap font-medium">MSE</td><td class="px-6 py-4">পূর্বাভাসিত এবং প্রকৃত মানগুলির গড় বর্গ পার্থক্য।</td></tr>
+                            <tr><td class="px-6 py-4 whitespace-nowrap font-medium">RMSE</td><td class="px-6 py-4">MSE এর বর্গমূল। ত্রুটি মূল ডেটা ইউনিটে প্রকাশ করে।</td></tr>
+                            <tr><td class="px-6 py-4 whitespace-nowrap font-medium">R-স্কোয়ার্ড (R²)</td><td class="px-6 py-4">নির্ভরশীল ভেরিয়েবলের বৈচিত্র্যের কত শতাংশ মডেল দ্বারা ব্যাখ্যা করা হয়।</td></tr>
+                            <tr><td class="px-6 py-4 whitespace-nowrap font-medium">অ্যাডজাস্টেড R²</td><td class="px-6 py-4">মডেলে স্বাধীন ভেরিয়েবলের সংখ্যার জন্য সামঞ্জস্য করা R²।</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            `
+        },
+        logistic: {
+            intro: `
+                <h2 class="text-4xl font-bold mb-4 text-[#A7727D]">লজিস্টিক রিগ্রেশন</h2>
+                <p class="text-lg leading-relaxed mb-4">লজিস্টিক রিগ্রেশন হলো একটি সুপারভাইজড মেশিন লার্নিং অ্যালগরিদম যা শ্রেণীকরণ সমস্যাগুলির জন্য ব্যবহৃত হয়। যদিও এর নামে 'রিগ্রেশন' আছে, এটি মূলত একটি শ্রেণীকরণ অ্যালগরিদম, যা বিচ্ছিন্ন (বাইনারি) মান (যেমন, ০/১, হ্যাঁ/না, সত্য/মিথ্যা) অনুমান করতে ব্যবহৃত হয়।</p>
+            `,
+            math: `
+                <h3 class="text-2xl font-semibold mb-4 text-[#A7727D]">গাণিতিক ভিত্তি এবং সিগময়েড ফাংশন</h3>
+                <div class="space-y-4 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <p>লজিস্টিক রিগ্রেশন একটি রৈখিক সমীকরণের আউটপুটকে সিগময়েড বা লজিস্টিক ফাংশনের মাধ্যমে ০ এবং ১ এর মধ্যে একটি সম্ভাবনার মানে রূপান্তরিত করে। সিগময়েড ফাংশনের সূত্র: $$f(x) = \\frac{1}{1 + e^{-x}}$$</p>
+                    <p>এর ফলে, আউটপুটটি একটি ঘটনার ঘটার সম্ভাবনা হিসাবে ব্যাখ্যা করা যায়। এই মডেলের জন্য কস্ট ফাংশন হিসাবে লগ লস বা ক্রস-এন্ট্রপি ব্যবহৃত হয়: $$J = -\\sum y_i\\log(\\hat{y}_i) + (1-y_i)\\log(1-\\hat{y}_i)$$</p>
+                    <p>এই কস্ট ফাংশনটি উত্তল (convex), যা গ্রেডিয়েন্ট ডিসেন্টকে কার্যকরভাবে সর্বোত্তম সমাধান খুঁজে পেতে সাহায্য করে।</p>
+                </div>
+            `,
+            params: `
+                <h3 class="text-2xl font-semibold mb-4 mt-8 text-[#A7727D]">প্যারামিটার: লগ-অডস ব্যাখ্যা</h3>
+                <div class="overflow-x-auto bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <p class="mb-4">লজিস্টিক রিগ্রেশনের প্যারামিটারগুলি (সহগ এবং ইন্টারসেপ্ট) লিনিয়ার রিগ্রেশনের মতোই মডেল দ্বারা প্রশিক্ষণের সময় শেখা হয়, তবে তাদের ব্যাখ্যায় পার্থক্য রয়েছে কারণ তারা লগ-অডস পরিবর্তন করে।</p>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">প্যারামিটার</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">প্রতীক</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">গাণিতিক সংজ্ঞা</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ব্যবহারিক ব্যাখ্যা</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">ইন্টারসেপ্ট</td>
+                                <td class="px-6 py-4 whitespace-nowrap">$b$ বা $\\beta_0$</td>
+                                <td class="px-6 py-4">যখন সমস্ত স্বাধীন ভেরিয়েবল শূন্য হয় তখন ফলাফলের লগ-অডস।</td>
+                                <td class="px-6 py-4">বেসলাইন লগ-অডস বা ঘটনা ঘটার সম্ভাবনা যখন অন্য কোনো প্রভাবক নেই।</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">সহগ (Coefficient)</td>
+                                <td class="px-6 py-4 whitespace-nowrap">$w$ বা $\\beta$</td>
+                                <td class="px-6 py-4">স্বাধীন ভেরিয়েবলের এক ইউনিট বৃদ্ধিতে ফলাফলের লগ-অডস-এর পরিবর্তন।</td>
+                                <td class="px-6 py-4">$\\exp(coefficient)$ হলো অডস রেশিও। এটি নির্দেশ করে যে স্বাধীন ভেরিয়েবলের এক ইউনিট বৃদ্ধিতে ঘটনা ঘটার অডস কত গুণ পরিবর্তিত হয় (অন্যান্য ভেরিয়েবল স্থির রেখে)।</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `,
+            hyperparams: `
+                 <h3 class="text-2xl font-semibold mb-4 mt-8 text-[#A7727D]">হাইপারপ্যারামিটার এবং টিউনিং</h3>
+                 <div class="overflow-x-auto bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <p class="mb-4">লজিস্টিক রিগ্রেশনের হাইপারপ্যারামিটারগুলি মডেলের জটিলতা, প্রশিক্ষণ প্রক্রিয়া এবং কর্মক্ষমতা নিয়ন্ত্রণ করে।</p>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">হাইপারপ্যারামিটার</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ভূমিকা</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">টিউনিং পদ্ধতি</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">বিস্তারিত</th>
+                            </tr>
+                        </thead>
+                         <tbody class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">পেনাল্টি (Penalty) (L1/L2/ElasticNet)</td>
+                                <td class="px-6 py-4">রেগুলারাইজেশন প্রকার নিয়ন্ত্রণ করে।</td>
+                                <td class="px-6 py-4">গ্রিড সার্চ, র্যান্ডম সার্চ।</td>
+                                <td class="px-6 py-4">মডেলের ওভারফিটিং প্রতিরোধ করে। L1 অপ্রয়োজনীয় ফিচারের সহগ শূন্য করে (ফিচার নির্বাচন)। L2 সহগগুলির মান কমিয়ে দেয়। ElasticNet উভয়কে একত্রিত করে।</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">C (Inverse of Regularization Strength)</td>
+                                <td class="px-6 py-4">রেগুলারাইজেশন শক্তির বিপরীত।</td>
+                                <td class="px-6 py-4">গ্রিড সার্চ, র্যান্ডম সার্চ।</td>
+                                <td class="px-6 py-4">C এর ছোট মান শক্তিশালী রেগুলারাইজেশন নির্দেশ করে (মডেলকে সরল করে), আর বড় মান দুর্বল রেগুলারাইজেশন নির্দেশ করে (মডেলকে ডেটার সাথে বেশি ফিট হতে দেয়)।</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">সলভার (Solver)</td>
+                                <td class="px-6 py-4">অপ্টিমাইজেশন অ্যালগরিদম নির্বাচন।</td>
+                                <td class="px-6 py-4">গ্রিড সার্চ।</td>
+                                <td class="px-6 py-4">বিভিন্ন সলভার বিভিন্ন ডেটাসেট এবং পরিস্থিতিতে উপযুক্ত। যেমন: 'lbfgs' ছোট থেকে মাঝারি ডেটাসেটের জন্য ভালো, 'liblinear' ছোট ডেটাসেটের জন্য সেরা, 'sag' এবং 'saga' বড় ডেটাসেটের জন্য দ্রুত।</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">max_iter</td>
+                                <td class="px-6 py-4">সলভারের সর্বাধিক পুনরাবৃত্তি।</td>
+                                <td class="px-6 py-4">গ্রিড সার্চ, ম্যানুয়াল টিউনিং।</td>
+                                <td class="px-6 py-4">অপ্টিমাইজেশন অ্যালগরিদমকে কতবার ডেটা দিয়ে পুনরাবৃত্তি করতে দেওয়া হবে তা নির্ধারণ করে। পর্যাপ্ত কনভার্জেন্স নিশ্চিত করে এবং অকারণ প্রশিক্ষণ সময় এড়ায়।</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">tol (Tolerance)</td>
+                                <td class="px-6 py-4">কনভার্জেন্সের জন্য থামার মানদণ্ড।</td>
+                                <td class="px-6 py-4">গ্রিড সার্চ, ম্যানুয়াল টিউনিং।</td>
+                                <td class="px-6 py-4">যখন লস ফাংশনের উন্নতি একটি নির্দিষ্ট থ্রেশহোল্ডের নিচে নেমে যায়, তখন প্রশিক্ষণ বন্ধ করে।</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">n_jobs</td>
+                                <td class="px-6 py-4">গণনার জন্য CPU কোরের সংখ্যা।</td>
+                                <td class="px-6 py-4">ম্যানুয়াল সেটিং।</td>
+                                <td class="px-6 py-4">প্রশিক্ষণ প্রক্রিয়াকে সমান্তরাল করে, বড় ডেটাসেটের জন্য গতি বাড়ায়। -1 সেট করলে সমস্ত উপলব্ধ কোর ব্যবহার করা হয়।</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `,
+            usecases: `
+                <h3 class="text-2xl font-semibold mb-4 mt-8 text-[#A7727D]">ব্যবহারিক প্রয়োগ</h3>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="p-6 concept-card rounded-lg">
+                        <h4 class="text-xl font-semibold mb-2">📧 স্প্যাম সনাক্তকরণ</h4>
+                        <p>একটি ইমেল তার বিষয়বস্তু, প্রেরক ইত্যাদি ফিচারের উপর ভিত্তি করে স্প্যাম কি না তা নির্ধারণ করা।</p>
+                    </div>
+                    <div class="p-6 concept-card rounded-lg">
+                        <h4 class="text-xl font-semibold mb-2">🩺 রোগ নির্ণয়</h4>
+                        <p>রোগীর লক্ষণ এবং স্বাস্থ্য তথ্যের উপর ভিত্তি করে কোনো নির্দিষ্ট রোগের উপস্থিতি আছে কি না তা অনুমান করা।</p>
+                    </div>
+                    <div class="p-6 concept-card rounded-lg">
+                        <h4 class="text-xl font-semibold mb-2">💳 জালিয়াতি সনাক্তকরণ</h4>
+                        <p>একটি আর্থিক লেনদেন তার পরিমাণ, স্থান এবং সময়ের উপর ভিত্তি করে বৈধ না জালিয়াতিপূর্ণ তা নির্ধারণ করা।</p>
+                    </div>
+                </div>
+            `,
+            metrics: `
+                 <h3 class="text-2xl font-semibold mb-4 mt-8 text-[#A7727D]">মডেল মূল্যায়ন মেট্রিক্স</h3>
+                 <div class="overflow-x-auto bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">মেট্রিক</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">কখন ব্যবহার করবেন</th></tr>
+                        </thead>
+                         <tbody class="bg-white divide-y divide-gray-200">
+                            <tr><td class="px-6 py-4 whitespace-nowrap font-medium">Accuracy</td><td class="px-6 py-4">সুষম ডেটাসেটের জন্য।</td></tr>
+                            <tr><td class="px-6 py-4 whitespace-nowrap font-medium">Precision</td><td class="px-6 py-4">যখন মিথ্যা ধনাত্মক (False Positives) কমানো গুরুত্বপূর্ণ।</td></tr>
+                            <tr><td class="px-6 py-4 whitespace-nowrap font-medium">Recall</td><td class="px-6 py-4">যখন মিথ্যা ঋণাত্মক (False Negatives) কমানো গুরুত্বপূর্ণ।</td></tr>
+                            <tr><td class="px-6 py-4 whitespace-nowrap font-medium">F1-Score</td><td class="px-6 py-4">ভারসাম্যহীন ডেটাসেটে, যখন Precision এবং Recall উভয়ই গুরুত্বপূর্ণ।</td></tr>
+                             <tr><td class="px-6 py-4 whitespace-nowrap font-medium">ROC-AUC</td><td class="px-6 py-4">মডেলের সামগ্রিক বৈষম্যমূলক ক্ষমতা মূল্যায়নের জন্য।</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            `
+        },
+        comparison: `
+            <h2 class="text-4xl font-bold mb-6 text-[#A7727D]">লিনিয়ার বনাম লজিস্টিক রিগ্রেশন</h2>
+            <p class="text-lg leading-relaxed mb-8">যদিও দুটি অ্যালগরিদমের নামেই 'রিগ্রেশন' শব্দটি আছে, তাদের মধ্যে মৌলিক পার্থক্য রয়েছে যা তাদের ভিন্ন ভিন্ন সমস্যার জন্য উপযুক্ত করে তোলে। নিচের টেবিলটি তাদের মূল পার্থক্যগুলো তুলে ধরে।</p>
+            <div class="overflow-x-auto bg-white p-4 rounded-lg shadow-lg border border-gray-200">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-[#F5F0E8]">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">বৈশিষ্ট্য</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">লিনিয়ার রিগ্রেশন</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">লজিস্টিক রিগ্রেশন</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <tr><td class="px-6 py-4 font-semibold">সমস্যার ধরন</td><td class="px-6 py-4">রিগ্রেশন</td><td class="px-6 py-4">শ্রেণীকরণ</td></tr>
+                        <tr><td class="px-6 py-4 font-semibold">আউটপুট ভেরিয়েবল</td><td class="px-6 py-4">অবিচ্ছিন্ন (Continuous)</td><td class="px-6 py-4">বিচ্ছিন্ন/ক্যাটাগরিক্যাল (Discrete)</td></tr>
+                        <tr><td class="px-6 py-4 font-semibold">গাণিতিক ফাংশন</td><td class="px-6 py-4">সরল রৈখিক সমীকরণ</td><td class="px-6 py-4">সিগময়েড (লজিস্টিক) ফাংশন</td></tr>
+                        <tr><td class="px-6 py-4 font-semibold">ভেরিয়েবল সম্পর্ক</td><td class="px-6 py-4">সরল রেখা</td><td class="px-6 py-4">S-আকৃতির বক্ররেখা</td></tr>
+                        <tr><td class="px-6 py-4 font-semibold">কস্ট ফাংশন</td><td class="px-6 py-4">মিন স্কোয়ার্ড এরর (MSE)</td><td class="px-6 py-4">ক্রস-এন্ট্রপি / লগ লস</td></tr>
+                        <tr><td class="px-6 py-4 font-semibold">ব্যবহারের ক্ষেত্র</td><td class="px-6 py-4">মূল্য, বিক্রয় পূর্বাভাস</td><td class="px-6 py-4">স্প্যাম সনাক্তকরণ, রোগ নির্ণয়</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        `,
+        conclusion: `
+            <h2 class="text-4xl font-bold mb-4 text-[#A7727D]">উপসংহার এবং পরবর্তী পদক্ষেপ</h2>
+            <p class="text-lg leading-relaxed mb-4">লিনিয়ার এবং লজিস্টিক রিগ্রেশন উভয়ই মেশিন লার্নিং-এর জগতে দুটি অপরিহার্য এবং মৌলিক অ্যালগরিদম। লিনিয়ার রিগ্রেশন অবিচ্ছিন্ন ডেটা পূর্বাভাসের জন্য এবং লজিস্টিক রিগ্রেশন শ্রেণীকরণ সমস্যার জন্য শক্তিশালী হাতিয়ার। তাদের গাণিতিক ভিত্তি, ব্যবহারিক প্রয়োগ এবং প্যারামিটার টিউনিং সম্পর্কে জ্ঞান একজন শিক্ষার্থীকে মেশিন লার্নিং-এর আরও উন্নত ধারণা অন্বেষণ করার জন্য একটি শক্তিশালী ভিত্তি প্রদান করে।</p>
+            <h3 class="text-2xl font-semibold mb-4 mt-8 text-[#A7727D]">পরবর্তী পদক্ষেপ</h3>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="p-6 concept-card rounded-lg">
+                    <h4 class="text-xl font-semibold mb-2">🚀 উন্নত মডেল</h4>
+                    <p>সাপোর্ট ভেক্টর মেশিন (SVM), ডিসিশন ট্রি, র্যান্ডম ফরেস্ট এবং নিউরাল নেটওয়ার্কের মতো আরও জটিল মডেলগুলি সম্পর্কে জানুন।</p>
+                </div>
+                <div class="p-6 concept-card rounded-lg">
+                    <h4 class="text-xl font-semibold mb-2">🛠️ ব্যবহারিক প্রয়োগ</h4>
+                    <p>Scikit-learn, NumPy, Pandas এবং Matplotlib এর মতো পাইথন লাইব্রেরি ব্যবহার করে বাস্তব ডেটাসেটের উপর এই অ্যালগরিদমগুলি বাস্তবায়ন করুন।</p>
+                </div>
+                <div class="p-6 concept-card rounded-lg">
+                    <h4 class="text-xl font-semibold mb-2">⚙️ ফিচার ইঞ্জিনিয়ারিং</h4>
+                    <p>মডেলের পারফরম্যান্স উন্নত করতে ডেটা প্রিপ্রোসেসিং, অনুপস্থিত মান পরিচালনা এবং নতুন ফিচার তৈরির কৌশলগুলি শিখুন।</p>
+                </div>
+                <div class="p-6 concept-card rounded-lg">
+                    <h4 class="text-xl font-semibold mb-2">🎯 মডেল টিউনিং</h4>
+                    <p>ক্রস-ভ্যালিডেশন, গ্রিড সার্চ এবং র্যান্ডম সার্চ ব্যবহার করে হাইপারপ্যারামিটার টিউনিং-এর মাধ্যমে আপনার মডেলের কার্যকারিতা সর্বোত্তম করুন।</p>
+                </div>
+            </div>
+        `
+    };
+
+    function renderContent() {
+        document.getElementById('intro-content').innerHTML = `
+            <h2 class="text-4xl font-bold mb-4 text-[#A7727D]">${contentData.intro.title}</h2>
+            ${contentData.intro.body}
+        `;
+
+        document.getElementById('linear-intro').innerHTML = contentData.linear.intro;
+        document.getElementById('linear-math').innerHTML = contentData.linear.math;
+        document.getElementById('linear-params').innerHTML = contentData.linear.params;
+        document.getElementById('linear-hyperparams').innerHTML = contentData.linear.hyperparams;
+        document.getElementById('linear-usecases').innerHTML = contentData.linear.usecases;
+        document.getElementById('linear-metrics').innerHTML = contentData.linear.metrics;
+
+        document.getElementById('logistic-intro').innerHTML = contentData.logistic.intro;
+        document.getElementById('logistic-math').innerHTML = contentData.logistic.math;
+        document.getElementById('logistic-params').innerHTML = contentData.logistic.params;
+        document.getElementById('logistic-hyperparams').innerHTML = contentData.logistic.hyperparams;
+        document.getElementById('logistic-usecases').innerHTML = contentData.logistic.usecases;
+        document.getElementById('logistic-metrics').innerHTML = contentData.logistic.metrics;
+
+        document.getElementById('comparison-content').innerHTML = contentData.comparison;
+        document.getElementById('conclusion-content').innerHTML = contentData.conclusion;
+
+        // Render math after all content has been loaded into the DOM
+        if (window.renderMathInElement) {
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '\\[', right: '\\]', display: true}
+                ]
+            });
+        }
+    }
+
+    // Navigation Logic
+    const navLinks = document.querySelectorAll('#main-nav a');
+    const contentSections = document.querySelectorAll('.content-section');
+
+    navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            const targetId = link.getAttribute('data-target');
+            
+            navLinks.forEach(nav => nav.classList.remove('active'));
+            link.classList.add('active');
+
+            contentSections.forEach(section => {
+                section.classList.remove('active');
+                if (section.id === targetId) {
+                    section.classList.add('active');
+                }
+            });
+
+            // Re-initialize chart if the target section has one
+            if (targetId === 'linear') {
+                initLinearChart();
+            } else if (targetId === 'logistic') {
+                initLogisticChart();
+            }
+        });
+    });
+
+    // --- Linear Regression Chart ---
+    let linearChart;
+    const linearData = [
+        { x: 1, y: 2.1 }, { x: 2, y: 3.5 }, { x: 3, y: 3.2 },
+        { x: 4, y: 5.1 }, { x: 5, y: 4.8 }, { x: 6, y: 6.9 }, { x: 7, y: 7.2 }
+    ];
+
+    function calculateMSE(m, b) {
+        let sumSquaredError = 0;
+        linearData.forEach(point => {
+            const predictedY = m * point.x + b;
+            sumSquaredError += Math.pow(point.y - predictedY, 2);
+        });
+        return (sumSquaredError / linearData.length).toFixed(4);
+    }
+
+    function updateLinearChart() {
+        const m = parseFloat(document.getElementById('slopeSlider').value);
+        const b = parseFloat(document.getElementById('interceptSlider').value);
+        
+        document.getElementById('slopeValue').textContent = m.toFixed(2);
+        document.getElementById('interceptValue').textContent = b.toFixed(2);
+        document.getElementById('mseValue').textContent = calculateMSE(m, b);
+
+        linearChart.data.datasets[1].data = linearData.map(p => ({ x: p.x, y: m * p.x + b }));
+        linearChart.update();
+    }
+
+    function initLinearChart() {
+        const ctx = document.getElementById('linearChart').getContext('2d');
+        if (linearChart) {
+            linearChart.destroy();
+        }
+        linearChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'ডেটা পয়েন্ট',
+                    data: linearData,
+                    backgroundColor: '#A7727D',
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }, {
+                    label: 'রিগ্রেশন লাইন',
+                    type: 'line',
+                    data: [],
+                    borderColor: '#739072',
+                    borderWidth: 3,
+                    fill: false,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { beginAtZero: true, max: 8 },
+                    y: { beginAtZero: true, max: 10 }
+                }
+            }
+        });
+        updateLinearChart();
+    }
+    
+    document.getElementById('slopeSlider').addEventListener('input', updateLinearChart);
+    document.getElementById('interceptSlider').addEventListener('input', updateLinearChart);
+
+
+    // --- Logistic Regression Chart ---
+    let logisticChart;
+    const logisticData = [
+        // Class 0
+        ...Array(20).fill(0).map(() => ({ x: Math.random() * 4 + 1, y: Math.random() * 4 + 1, class: 0 })),
+        // Class 1
+        ...Array(20).fill(0).map(() => ({ x: Math.random() * 4 + 5, y: Math.random() * 4 + 5, class: 1 }))
+    ];
+
+    function sigmoid(x) {
+        return 1 / (1 + Math.exp(-x));
+    }
+    
+    // Simplified logistic regression model (for visualization only)
+    const log_w = 1.5; // fixed weight
+    const log_b = -7.5; // fixed bias
+
+    logisticData.forEach(p => {
+        const z = log_w * p.x + log_b; // only using x for simplicity
+        p.prob = sigmoid(z);
+    });
+
+    function updateLogisticChart() {
+        const threshold = parseFloat(document.getElementById('thresholdSlider').value);
+        document.getElementById('thresholdValue').textContent = threshold.toFixed(2);
+
+        let tp = 0, tn = 0, fp = 0, fn = 0;
+        
+        logisticData.forEach(p => {
+            const prediction = p.prob >= threshold ? 1 : 0;
+            if (prediction === 1 && p.class === 1) tp++;
+            else if (prediction === 0 && p.class === 0) tn++;
+            else if (prediction === 1 && p.class === 0) fp++;
+            else if (prediction === 0 && p.class === 1) fn++;
+        });
+
+        const accuracy = (tp + tn) / (tp + tn + fp + fn) || 0;
+        const precision = tp / (tp + fp) || 0;
+        const recall = tp / (tp + fn) || 0;
+        const f1 = 2 * (precision * recall) / (precision + recall) || 0;
+
+        document.getElementById('confusionMatrix').innerHTML = `
+            <h4 class="font-semibold text-center mb-2">পারফরম্যান্স মেট্রিক্স</h4>
+            <div class="grid grid-cols-2 gap-2 text-sm text-center">
+                <div class="p-2 bg-green-100 rounded"><strong>TP:</strong> ${tp}</div>
+                <div class="p-2 bg-red-100 rounded"><strong>FP:</strong> ${fp}</div>
+                <div class="p-2 bg-red-100 rounded"><strong>FN:</strong> ${fn}</div>
+                <div class="p-2 bg-green-100 rounded"><strong>TN:</strong> ${tn}</div>
+            </div>
+            <div class="mt-3 space-y-1 text-gray-700">
+                <p><strong>অ্যাকুরেসি:</strong> ${accuracy.toFixed(3)}</p>
+                <p><strong>প্রিসিশন:</strong> ${precision.toFixed(3)}</p>
+                <p><strong>রিকল:</strong> ${recall.toFixed(3)}</p>
+                <p><strong>F1-স্কোর:</strong> ${f1.toFixed(3)}</p>
+            </div>
+        `;
+        
+        // Update decision boundary on chart
+        let decision_x;
+        if (threshold === 0) { // If threshold is 0, all are classified as 1 (unless log_w is inf/-inf)
+             decision_x = 10; // Pushes decision boundary to the right
+        } else if (threshold === 1) { // If threshold is 1, all are classified as 0 (unless log_w is inf/-inf)
+            decision_x = 0; // Pushes decision boundary to the left
+        } else {
+            decision_x = (-log_b + Math.log(1/threshold - 1)) / log_w;
+        }
+
+        logisticChart.options.plugins.annotation.annotations.line1.xMin = decision_x;
+        logisticChart.options.plugins.annotation.annotations.line1.xMax = decision_x;
+        logisticChart.update();
+    }
+
+
+    function initLogisticChart() {
+        // Dummy annotation plugin for the boundary line
+        const annotationPlugin = {
+            id: 'annotation',
+            afterDraw(chart, args, options) {
+                const {ctx, chartArea: {top, bottom}, scales: {x, y}} = chart;
+                options.annotations.forEach(annotation => {
+                    if (annotation.type === 'line') {
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.moveTo(x.getPixelForValue(annotation.xMin), top);
+                        ctx.lineTo(x.getPixelForValue(annotation.xMax), bottom);
+                        ctx.lineWidth = annotation.borderWidth;
+                        ctx.strokeStyle = annotation.borderColor;
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                });
+            }
+        };
+        Chart.register(annotationPlugin);
+
+        const ctx = document.getElementById('logisticChart').getContext('2d');
+        if (logisticChart) {
+            logisticChart.destroy();
+        }
+        logisticChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'শ্রেণী ০',
+                    data: logisticData.filter(p => p.class === 0),
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }, {
+                    label: 'শ্রেণী ১',
+                    data: logisticData.filter(p => p.class === 1),
+                    backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { beginAtZero: true, max: 10 },
+                    y: { beginAtZero: true, max: 10 }
+                },
+                plugins: {
+                    annotation: {
+                        annotations: [{
+                            type: 'line',
+                            mode: 'vertical',
+                            scaleID: 'x',
+                            xMin: 0,
+                            xMax: 0,
+                            borderColor: 'rgb(75, 192, 192)',
+                            borderWidth: 2,
+                            label: {
+                                enabled: true,
+                                content: 'Decision Boundary'
+                            }
+                        }]
+                    }
+                }
+            }
+        });
+        updateLogisticChart();
+    }
+    
+    document.getElementById('thresholdSlider').addEventListener('input', updateLogisticChart);
+
+
+    // Initial setup
+    renderContent();
+    initLinearChart();
+});
+
+</script>
+</body>
+</html>
+

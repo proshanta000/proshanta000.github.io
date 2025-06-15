@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ইন্টারেক্টিভ XGBoost ক্লাসিফায়ার</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" xintegrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI76/y2JTapbKCMKrqDhVpIENB" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js" xintegrity="sha384-X/XCfMm41YSfkJfxwcqcZQLpTsEFfs4UuMznY6krLQSdSITd08SRqGNWsoRTGjJun" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js" xintegrity="sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR" crossorigin="anonymous"></script>
+
+    <!-- Chosen Palette: Scholarly Cyan -->
+    <!-- Application Structure Plan: The SPA is designed as an educational tool with a primary focus on the "Interactive Demo." This encourages a 'learn-by-doing' approach. A fixed left sidebar provides consistent navigation to other key sections like "Theory & Math," "Applications," and "Evaluation." These supplementary sections use a collapsible accordion structure to present the dense information from the source report in a manageable, user-controlled way, preventing cognitive overload. -->
+    <!-- Visualization & Content Choices: 1. XGBoost Decision Boundary -> Goal: To visualize how the ensemble model's classification boundary is shaped by its core hyperparameters. -> Viz/Method: A Chart.js scatter plot displays a non-linear dataset. The background of the chart is dynamically colored based on the predictions of a simplified JS implementation of XGBoost, effectively drawing the model's decision boundary. -> Interaction: Sliders for `n_estimators`, `learning_rate`, and `max_depth` allow users to modify the model's configuration. Upon change, the XGBoost model is retrained, and the decision boundary on the chart updates in near real-time. -> Justification: This provides direct, tangible feedback, connecting abstract hyperparameters to the visual outcome of the model. It intuitively demonstrates concepts like model complexity, the impact of learning rate on convergence, and how more estimators refine the result. 2. Theoretical Content -> Goal: To present detailed text from the source report. -> Viz/Method: HTML/JS accordions. -> Interaction: Click-to-expand/collapse. -> Justification: Organizes dense text and mathematical formulas from the report into manageable chunks, making it less intimidating. KaTeX ensures mathematical formulas are rendered clearly and professionally. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+            color: #1e293b; /* slate-800 */
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+        
+        .katex { font-size: 1.1em !important; }
+        .nav-link {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .nav-link.active {
+            color: #0891b2; /* cyan-600 */
+            background-color: #ecfeff; /* cyan-50 */
+            font-weight: 600;
+        }
+        .nav-link:not(.active):hover {
+            background-color: #f1f5f9; /* slate-100 */
+        }
+        .content-section { display: none; }
+        .content-section.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .accordion-button { transition: background-color 0.2s ease-in-out; }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-in-out, padding 0.4s ease-in-out;
+            padding: 0 1.5rem;
+        }
+        .chart-container {
+            position: relative;
+            height: 450px;
+            max-height: 60vh;
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="flex flex-col md:flex-row min-h-screen bg-slate-50">
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-80 bg-white border-r border-slate-200 flex-shrink-0 p-4">
+            <header class="text-center mb-6 pt-4">
+                <h1 class="text-2xl font-bold text-slate-800">মেশিন লার্নিং গাইড</h1>
+                <p class="text-slate-600 text-sm mt-1">XGBoost</p>
+            </header>
+            <div style="margin-top: 20px;">
+                    <a href="index.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="index.html">হোম
+                    </a>
+            </div>
+            <div style="margin-bottom: 20px;">
+                    <a href="saus.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="saus.html">প্রাম্ভিক ধারনা
+                    </a>
+            </div>
+
+            <nav id="main-nav" class="flex flex-col space-y-1">
+                <a class="nav-link active py-3 px-4 rounded-md" data-target="interactive_demo">XGBoost</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="theory">থিওরি ও গণিত</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="applications">ব্যবহারিক প্রয়োগ</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="evaluation">মডেল মূল্যায়ন</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+            <section id="interactive_demo" class="content-section active">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                    <h2 class="text-2xl font-bold mb-2 text-slate-800">XGBoost ক্লাসিফায়ার ডেমো</h2>
+                    <p class="text-slate-600 mb-4">
+                        এই ইন্টারেক্টিভ ডেমো আপনাকে XGBoost অ্যালগরিদমের মূল হাইপারপ্যারামিটারগুলির প্রভাব হাতে-কলমে অন্বেষণ করতে সাহায্য করবে। স্লাইডারগুলি পরিবর্তন করে দেখুন কিভাবে মডেলের সিদ্ধান্ত সীমানা (decision boundary) পরিবর্তিত হয় এবং ডেটা পয়েন্টগুলি কতটা নির্ভুলভাবে শ্রেণীবদ্ধ হয়। এটি আপনাকে মডেলের জটিলতা, শেখার গতি এবং ওভারফিটিং প্রতিরোধের মধ্যেকার গুরুত্বপূর্ণ ট্রেড-অফগুলি বুঝতে সাহায্য করবে।
+                        <br><br>
+                        <strong>হাইপারপ্যারামিটার কন্ট্রোল:</strong>
+                        <ul>
+                            <li><strong>ট্রির সংখ্যা (n_estimators):</strong> এই স্লাইডারটি XGBoost মডেলের মোট কতগুলি দুর্বল লার্নার (ডিসিশন ট্রি) একত্রিত করা হবে তা নির্ধারণ করে। ট্রির সংখ্যা যত বেশি হবে, মডেল তত বেশি ডেটা থেকে শিখতে পারবে এবং জটিল সম্পর্ক ধরতে পারবে। তবে, অতিরিক্ত ট্রির সংখ্যা ওভারফিটিং এবং প্রশিক্ষণের সময় বাড়াতে পারে।</li>
+                            <li><strong>লার্নিং রেট (learning_rate):</strong> এটি প্রতিটি নতুন যোগ করা ট্রির পূর্বাভাসকে মূল মডেলে যোগ করার আগে কতটা স্কেল করা হবে তা নিয়ন্ত্রণ করে। একটি ছোট লার্নিং রেট মডেলকে ধীরে ধীরে এবং সতর্কতার সাথে শিখতে দেয়, যা ওভারফিটিংয়ের ঝুঁকি কমায় এবং স্থিতিশীলতা বাড়ায়। তবে, এর জন্য বেশি ট্রির সংখ্যা বা ইটারেশন প্রয়োজন হতে পারে। একটি বড় লার্নিং রেট মডেলকে দ্রুত শিখতে সাহায্য করে, কিন্তু এটি স্থানীয় অপটিমায় আটকা পড়ার বা ওভারফিট করার সম্ভাবনা বাড়িয়ে দেয়।</li>
+                            <li><strong>সর্বোচ্চ গভীরতা (max_depth):</strong> এটি প্রতিটি পৃথক ডিসিশন ট্রির সর্বোচ্চ গভীরতা নির্ধারণ করে। একটি অগভীর ট্রি (ছোট max_depth) কম জটিল এবং আন্ডারফিটিং প্রবণ হতে পারে, যখন একটি গভীর ট্রি (বড় max_depth) ডেটার সূক্ষ্ম প্যাটার্নগুলি ধরতে পারে, কিন্তু ওভারফিটিংয়ের ঝুঁকি বাড়ায়।</li>
+                        </ul>
+                        <br>
+                        <strong>সম্মিলিত সিদ্ধান্ত সীমানা চার্ট:</strong>
+                        এই চার্টে লাল এবং নীল বিন্দুগুলি হলো আপনার ডেটা পয়েন্ট, যা দুটি ভিন্ন শ্রেণীতে বিভক্ত। চার্টের পটভূমির রঙ মডেলের সিদ্ধান্ত সীমানা (decision boundary) নির্দেশ করে। যে এলাকায় রঙ লাল, সেই এলাকাটি মডেল দ্বারা ক্লাস 0 হিসাবে শ্রেণীবদ্ধ হবে, এবং যে এলাকায় রঙ নীল, সেই এলাকাটি ক্লাস 1 হিসাবে শ্রেণীবদ্ধ হবে। আপনি যখন হাইপারপ্যারামিটার পরিবর্তন করবেন, তখন এই সিদ্ধান্ত সীমানা পরিবর্তিত হতে দেখবেন, যা মডেলের ডেটা বিভক্ত করার ক্ষমতাকে প্রতিফলিত করবে।
+                        <br><br>
+                        <strong>মডেলের তথ্য প্যানেল:</strong>
+                        এখানে আপনি মডেলের বর্তমান ট্রেনিং অ্যাকুরেসি দেখতে পাবেন। এটি মডেলটি প্রশিক্ষণ ডেটা সেটকে কতটা নির্ভুলভাবে শ্রেণীবদ্ধ করতে পেরেছে তার একটি পরিমাপ। হাইপারপ্যারামিটার পরিবর্তন করার সাথে সাথে এই মানটি পরিবর্তিত হবে, যা আপনাকে মডেলের পারফরম্যান্স সম্পর্কে একটি ধারণা দেবে।
+                    </p>
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+                        <!-- Left Column: Controls and Info -->
+                        <div class="space-y-6">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg border">
+                                <div>
+                                    <label for="nEstimatorsSlider" class="block font-medium text-slate-700">ট্রির সংখ্যা: <span id="nEstimatorsValue" class="font-bold text-cyan-700 text-lg">20</span></label>
+                                    <input type="range" id="nEstimatorsSlider" min="1" max="100" value="20" step="1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                                </div>
+                                <div>
+                                    <label for="learningRateSlider" class="block font-medium text-slate-700">লার্নিং রেট: <span id="learningRateValue" class="font-bold text-cyan-700 text-lg">0.3</span></label>
+                                    <input type="range" id="learningRateSlider" min="0.1" max="1.0" value="0.3" step="0.1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                                </div>
+                                 <div>
+                                    <label for="maxDepthSlider" class="block font-medium text-slate-700">সর্বোচ্চ গভীরতা: <span id="maxDepthValue" class="font-bold text-cyan-700 text-lg">3</span></label>
+                                    <input type="range" id="maxDepthSlider" min="1" max="10" value="3" step="1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                                </div>
+                            </div>
+                            <button id="regenDataBtn" class="w-full bg-cyan-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-cyan-700 transition">নতুন ডেটা জেনারেট করুন</button>
+                            <div id="info-panel" class="bg-slate-50 p-4 rounded-lg border space-y-3">
+                                <h3 class="font-semibold text-slate-800 text-lg border-b pb-2 mb-2">মডেলের তথ্য</h3>
+                                <p><strong>ট্রেনিং অ্যাকুরেসি:</strong> <span id="accuracy-info" class="font-mono text-cyan-700 font-bold">N/A</span></p>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Chart -->
+                        <div class="chart-container">
+                             <h3 class="font-semibold text-slate-800 mb-2 text-center">সম্মিলিত সিদ্ধান্ত সীমানা</h3>
+                            <canvas id="xgboostChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Other sections rendered dynamically -->
+            <section id="theory" class="content-section"></section>
+            <section id="applications" class="content-section"></section>
+            <section id="evaluation" class="content-section"></section>
+        </main>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    // --- Content Data and Rendering Logic ---
+    const contentData = {
+        theory: {
+            title: "থিওরি ও গণিত",
+            sections: [
+                {
+                    title: "XGBoost পরিচিতি",
+                    content: `<p>XGBoost, যার পূর্ণরূপ হলো eXtreme Gradient Boosting, একটি অত্যন্ত জনপ্রিয়, শক্তিশালী এবং দক্ষ ওপেন-সোর্স লাইব্রেরি যা গ্রেডিয়েন্ট বুস্টিং অ্যালগরিদমের একটি অপ্টিমাইজড এবং স্কেলেবল বাস্তবায়ন প্রদান করে। এটি তার উচ্চ কার্যকারিতা, গতি, এবং নমনীয়তার জন্য সুপরিচিত।</p>`
+                },
+                {
+                    title: "গাণিতিক ভিত্তি",
+                    content: `
+                        <p>XGBoost গ্রেডিয়েন্ট বুস্টিংকে উন্নত করে, যেখানে এটি লস ফাংশনের দ্বিতীয়-ক্রম ডেরিভেটিভস (Hessian) ব্যবহার করে অপ্টিমাইজেশন প্রক্রিয়াকে আরও সঠিক করে।</p>
+                        <h4 class="mt-4 font-semibold">উদ্দেশ্য ফাংশন (Objective Function)</h4>
+                        <p>XGBoost এর উদ্দেশ্য ফাংশনটি হলো লস ফাংশন এবং নিয়মিতকরণ টার্মের যোগফল: $\\text{Obj} = \\sum_{i=1}^{n} L(y_i, \\hat{y}_i) + \\sum_{k=1}^{K} \\Omega(f_k)$</p>
+                        <p>এখানে $\\Omega(f_k)$ হলো $k$-তম ট্রি $f_k$ এর জটিলতার জন্য পেনাল্টি, যা L1 এবং L2 নিয়মিতকরণ অন্তর্ভুক্ত করে: $\\Omega(f) = \\gamma T + \\frac{1}{2} \\lambda ||w||^2$</p>
+                    `
+                },
+                {
+                    title: "হাইপারপ্যারামিটার",
+                    content: `<p>XGBoost এর কার্যকারিতা বিভিন্ন হাইপারপ্যারামিটারের উপর নির্ভরশীল, যেমন <code>n_estimators</code>, <code>learning_rate</code> (eta), <code>max_depth</code>, <code>gamma</code>, <code>subsample</code> ইত্যাদি। এই প্যারামিটারগুলি মডেলের জটিলতা, প্রশিক্ষণ গতি এবং ওভারফিটিং প্রতিরোধ নিয়ন্ত্রণ করে।</p>`
+                }
+            ]
+        },
+        applications: {
+            title: "ব্যবহারিক প্রয়োগ",
+            sections: [
+                {
+                    title: "বাস্তব-বিশ্বের ব্যবহার",
+                    content: `
+                        <div class="grid md:grid-cols-2 gap-4 mt-4">
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">জালিয়াতি সনাক্তকরণ</h4><p class="text-sm text-slate-600">আর্থিক লেনদেনে জালিয়াতি সনাক্ত করতে।</p></div>
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">গ্রাহক চর্ন পূর্বাভাস</h4><p class="text-sm text-slate-600">কোন গ্রাহকরা পরিষেবা ত্যাগ করতে পারে তা পূর্বাভাস দিতে।</p></div>
+                             <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">CTR পূর্বাভাস</h4><p class="text-sm text-slate-600">বিজ্ঞাপনে ক্লিক-থ্রু রেট পূর্বাভাস দিতে।</p></div>
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">মেডিকেল রোগ নির্ণয়</h4><p class="text-sm text-slate-600">রোগীর তথ্যের উপর ভিত্তি করে রোগ নির্ণয় করতে।</p></div>
+                        </div>`
+                }
+            ]
+        },
+        evaluation: {
+            title: "মডেল মূল্যায়ন",
+            sections: [{
+                title: "সাধারণ মেট্রিক্স",
+                content: `<p>XGBoost মডেল মূল্যায়নের জন্য সাধারণত ব্যবহৃত মেট্রিক্স হলো:</p>
+                <h4 class="mt-4 font-semibold">শ্রেণীকরণ</h4>
+                <ul class="list-disc list-inside space-y-1 mt-2"><li>Accuracy, Precision, Recall, F1-Score, ROC-AUC</li></ul>
+                <h4 class="mt-4 font-semibold">রিগ্রেশন</h4>
+                <ul class="list-disc list-inside space-y-1 mt-2"><li>MSE, RMSE, R²</li></ul>`
+            }]
+        }
+    };
+    
+    const mainNav = document.getElementById('main-nav');
+    function buildAccordion(sections) {
+        return sections.map((section) => `
+            <div class="border border-slate-200 rounded-lg mb-3 bg-white shadow-sm">
+                <button class="accordion-button w-full text-left p-4 font-semibold text-lg text-slate-800 flex justify-between items-center hover:bg-slate-50" data-accordion-id="accordion-${section.title.replace(/\s/g, '')}">
+                    <span>${section.title}</span>
+                    <span class="transform transition-transform duration-300 text-cyan-600">▼</span>
+                </button>
+                <div id="accordion-${section.title.replace(/\s/g, '')}" class="accordion-content">
+                    <div class="p-4 pt-0 text-slate-700 leading-relaxed">${section.content}</div>
+                </div>
+            </div>`).join('');
+    }
+
+    function renderPage(targetId) {
+        const container = document.getElementById(targetId);
+        if (!container || !contentData[targetId]) return;
+        const data = contentData[targetId];
+        let html = `<h2 class="text-3xl font-bold mb-6 text-slate-800">${data.title}</h2>`;
+        html += buildAccordion(data.sections);
+        container.innerHTML = html;
+        container.querySelectorAll('.accordion-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const content = document.getElementById(button.dataset.accordionId);
+                const icon = button.querySelector('span:last-child');
+                const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+                if (isOpen) { content.style.maxHeight = '0px'; icon.style.transform = 'rotate(0deg)'; } 
+                else { content.style.maxHeight = content.scrollHeight + 30 + "px"; icon.style.transform = 'rotate(180deg)'; }
+            });
+        });
+        if (window.renderMathInElement) renderMathInElement(container, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });
+    }
+
+    mainNav.addEventListener('click', (e) => {
+        if (e.target.tagName === 'A') {
+            const targetId = e.target.dataset.target;
+            mainNav.querySelectorAll('a').forEach(link => link.classList.remove('active'));
+            e.target.classList.add('active');
+            document.querySelectorAll('.content-section').forEach(section => section.classList.remove('active'));
+            document.getElementById(targetId).classList.add('active');
+            if (targetId !== 'interactive_demo' && !document.getElementById(targetId).innerHTML) renderPage(targetId);
+        }
+    });
+
+    // --- XGBoost Interactive Logic ---
+    const nEstimatorsSlider = document.getElementById('nEstimatorsSlider');
+    const learningRateSlider = document = document.getElementById('learningRateSlider');
+    const maxDepthSlider = document.getElementById('maxDepthSlider');
+    const nEstimatorsValue = document.getElementById('nEstimatorsValue');
+    const learningRateValue = document.getElementById('learningRateValue');
+    const maxDepthValue = document.getElementById('maxDepthValue');
+    const accuracyInfo = document.getElementById('accuracy-info');
+    const regenDataBtn = document.getElementById('regenDataBtn');
+    const chartCanvas = document.getElementById('xgboostChart');
+
+    let xgbChart;
+    let trainingData = [];
+    let forest = [];
+    
+    const COLORS = {
+        CLASS_0: 'rgba(239, 68, 68, 0.7)', // red
+        CLASS_1: 'rgba(59, 130, 246, 0.7)', // blue
+        BOUNDARY_0: 'rgba(254, 226, 226, 0.5)', // red-100
+        BOUNDARY_1: 'rgba(219, 234, 254, 0.5)', // blue-100
+    };
+
+    // --- Simplified XGBoost & Decision Tree Implementation ---
+    function findBestSplit(dataset) {
+        let bestSplit = { mse: Infinity };
+        const xValues = [...new Set(dataset.map(p => p.x))];
+        for (const x of xValues) {
+            const left = dataset.filter(p => p.x < x), right = dataset.filter(p => p.x >= x);
+            if (left.length === 0 || right.length === 0) continue;
+            const leftAvg = left.reduce((s, p) => s + p.y, 0) / left.length;
+            const rightAvg = right.reduce((s, p) => s + p.y, 0) / right.length;
+            let mse = 0;
+            left.forEach(p => { mse += (p.y - leftAvg) ** 2; });
+            right.forEach(p => { mse += (p.y - rightAvg) ** 2; });
+            if (mse < bestSplit.mse) bestSplit = { threshold: x, feature: 0, leftValue: leftAvg, rightValue: rightAvg, mse };
+        }
+        const yValues = [...new Set(dataset.map(p => p.y))];
+        for (const y of yValues) {
+            const left = dataset.filter(p => p.y < y), right = dataset.filter(p => p.y >= y);
+            if (left.length === 0 || right.length === 0) continue;
+            const leftAvg = left.reduce((s, p) => s + p.y, 0) / left.length;
+            const rightAvg = right.reduce((s, p) => s + p.y, 0) / right.length;
+            let mse = 0;
+            left.forEach(p => { mse += (p.y - leftAvg) ** 2; });
+            right.forEach(p => { mse += (p.y - rightAvg) ** 2; });
+            if (mse < bestSplit.mse) bestSplit = { threshold: y, feature: 1, leftValue: leftAvg, rightValue: rightAvg, mse };
+        }
+        return bestSplit;
+    }
+
+    function buildTree(data, depth, maxDepth) {
+        if (depth >= maxDepth || data.length < 5) {
+            const avg = data.reduce((s, p) => s + p.y, 0) / (data.length || 1);
+            return { value: avg };
+        }
+        const split = findBestSplit(data);
+        if (split.mse === Infinity) return { value: data.reduce((s, p) => s + p.y, 0) / (data.length || 1) };
+        
+        const leftData = data.filter(p => (split.feature === 0 ? p.x : p.y) < split.threshold);
+        const rightData = data.filter(p => (split.feature === 0 ? p.x : p.y) >= split.threshold);
+
+        return {
+            ...split,
+            left: buildTree(leftData, depth + 1, maxDepth),
+            right: buildTree(rightData, depth + 1, maxDepth),
+        };
+    }
+    
+    function predictTree(tree, sample) {
+        if (tree.value !== undefined) return tree.value;
+        const featureVal = tree.feature === 0 ? sample.x : sample.y;
+        if (featureVal < tree.threshold) return predictTree(tree.left, sample);
+        else return predictTree(tree.right, sample);
+    }
+    
+    function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+
+    function runXGBoost() {
+        const nEstimators = parseInt(nEstimatorsSlider.value);
+        const learningRate = parseFloat(learningRateSlider.value);
+        const maxDepth = parseInt(maxDepthSlider.value);
+        
+        nEstimatorsValue.textContent = nEstimators;
+        learningRateValue.textContent = learningRate.toFixed(1);
+        maxDepthValue.textContent = maxDepth;
+        
+        let preds = new Array(trainingData.length).fill(0.0);
+        forest = [];
+
+        for (let i = 0; i < nEstimators; i++) {
+            const probs = preds.map(p => sigmoid(p));
+            const residuals = trainingData.map((d, j) => d.label - probs[j]);
+            
+            const residualData = trainingData.map((d, j) => ({ ...d, y: residuals[j] }));
+            const tree = buildTree(residualData, 0, maxDepth);
+            forest.push(tree);
+
+            for(let j=0; j < trainingData.length; j++) {
+                preds[j] += learningRate * predictTree(tree, trainingData[j]);
+            }
+        }
+        
+        // Calculate Accuracy
+        let correct = 0;
+        const finalProbs = preds.map(p => sigmoid(p));
+        for(let i=0; i < trainingData.length; i++) {
+            const prediction = finalProbs[i] > 0.5 ? 1 : 0;
+            if(prediction === trainingData[i].label) correct++;
+        }
+        accuracyInfo.textContent = `${((correct / trainingData.length) * 100).toFixed(1)}%`;
+
+        updateChartVisualization();
+    }
+    
+    function forestPredict(sample) {
+        const learningRate = parseFloat(learningRateSlider.value);
+        let pred = 0.0;
+        for(const tree of forest) {
+            pred += learningRate * predictTree(tree, sample);
+        }
+        return sigmoid(pred);
+    }
+
+    // --- Visualization Logic ---
+    function generateData(count = 250) {
+        trainingData = [];
+        for (let i = 0; i < count; i++) {
+            const r = Math.random() * 5;
+            const angle = Math.random() * 2 * Math.PI;
+            const isClass0 = Math.random() > 0.5;
+            let x, y, label;
+            if (isClass0) {
+                x = r * Math.cos(angle) + 2.5;
+                y = r * Math.sin(angle) + 2.5;
+                label = 0;
+            } else {
+                x = r * Math.cos(angle) + 7.5;
+                y = r * Math.sin(angle) + 7.5;
+                label = 1;
+            }
+            if(Math.random() < 0.15) label = 1 - label;
+            trainingData.push({ x, y, label });
+        }
+    }
+    
+    const decisionBoundaryPlugin = {
+        id: 'decisionBoundary',
+        beforeDraw: (chart) => {
+            if (forest.length === 0) return;
+            const { ctx, chartArea: { top, left, bottom, right }, scales: { x, y } } = chart;
+            ctx.save();
+            const resolution = 25;
+            const stepX = (right - left) / resolution;
+            const stepY = (bottom - top) / resolution;
+            for (let i = 0; i < resolution; i++) {
+                for (let j = 0; j < resolution; j++) {
+                    const gridX = left + i * stepX, gridY = top + j * stepY;
+                    const dataX = x.getValueForPixel(gridX), dataY = y.getValueForPixel(gridY);
+                    const prob = forestPredict({ x: dataX, y: dataY });
+                    ctx.fillStyle = `rgba(${prob < 0.5 ? '254, 226, 226' : '219, 234, 254'}, 0.7)`;
+                    ctx.fillRect(gridX, gridY, stepX, stepY);
+                }
+            }
+            ctx.restore();
+        }
+    };
+    
+    function updateChartVisualization() {
+        xgbChart.data.datasets[0].data = trainingData;
+        xgbChart.data.datasets[0].backgroundColor = trainingData.map(p => p.label === 0 ? COLORS.CLASS_0 : COLORS.CLASS_1);
+        xgbChart.update();
+    }
+    
+    function initChart() {
+        Chart.register(decisionBoundaryPlugin);
+        const ctx = chartCanvas.getContext('2d');
+        xgbChart = new Chart(ctx, {
+            type: 'scatter',
+            data: { datasets: [{ label: 'প্রশিক্ষণ ডেটা', data: [], pointRadius: 5, borderWidth: 1, borderColor: 'rgba(0,0,0,0.3)' }] },
+            options: { responsive: true, maintainAspectRatio: false,
+                scales: { x: { min: 0, max: 10 }, y: { min: 0, max: 10 } },
+                plugins: { tooltip: { callbacks: { label: (c) => `ক্লাস: ${c.raw.label}` } } }
+            }
+        });
+    }
+    
+    function initializeApp() {
+        generateData();
+        if (!xgbChart) initChart();
+        runXGBoost();
+    }
+
+    [nEstimatorsSlider, learningRateSlider, maxDepthSlider].forEach(slider => {
+        slider.addEventListener('input', runXGBoost);
+    });
+    regenDataBtn.addEventListener('click', initializeApp);
+
+    initializeApp();
+});
+</script>
+</body>
+</html>

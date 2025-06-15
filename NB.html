@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ইন্টারেক্টিভ নেভ বায়েস ক্লাসিফায়ার</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" xintegrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI76/y2JTapbKCMKrqDhVpIENB" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js" xintegrity="sha384-X/XCfMm41YSfkJfxwcqcZQLpTsEFfs4UuMznY6krLQSdSITd08SRqGNWsoRTGjJun" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js" xintegrity="sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR" crossorigin="anonymous"></script>
+    
+    <!-- Chosen Palette: Cool Breeze (Slate & Cyan) -->
+    <!-- Application Structure Plan: The application is a single-page app featuring a main interactive classifier demo and supplementary sections for theory. The primary user flow encourages learning-by-doing: users interact with the spam classifier first to build intuition. Detailed theoretical content (math, types, parameters, etc.) is organized into collapsible accordion sections accessible via a clean top navigation bar. This structure avoids information overload, allowing users to dive into details after seeing the algorithm in action, which is a more effective learning path than presenting a wall of text upfront. -->
+    <!-- Visualization & Content Choices: 1. Naive Bayes Calculation -> Goal: Build intuition for probabilistic classification -> Viz/Method: A dynamic, text-based visualization built with HTML/JS. -> Interaction: User inputs text, and the app displays a step-by-step breakdown of the probability calculations (Prior, Likelihoods for each word, final Posterior probability) for both 'Spam' and 'Not Spam' classes. Justification: This makes the abstract formula tangible by showing how each word contributes to the final decision. 2. Detailed Theory & Math -> Goal: Provide in-depth knowledge -> Viz/Method: Accordion-style expandable sections using HTML/JS and KaTeX for formulas. -> Interaction: Click to expand/collapse. Justification: Organizes dense information into digestible, self-contained modules, improving readability and user control over the learning pace. 3. Use Cases & Metrics -> Goal: Quick reference and contextual understanding -> Viz/Method: Styled HTML lists and tables. Justification: Presents structured information efficiently for easy scanning and comparison. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+            background-color: #f1f5f9; /* slate-100 */
+            color: #0f172a; /* slate-900 */
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+        
+        .katex { font-size: 1.1em !important; }
+        .nav-link {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .nav-link.active {
+            color: #0891b2; /* cyan-600 */
+            background-color: #e0f7fa; /* Light cyan for active background */
+            font-weight: 600;
+        }
+        .nav-link:not(.active):hover {
+            background-color: #e2e8f0; /* slate-200 */
+        }
+        .content-section { display: none; }
+        .content-section.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .accordion-button { transition: background-color 0.2s ease-in-out; }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-in-out, padding 0.4s ease-in-out;
+            padding: 0 1.5rem;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-64 bg-slate-100 border-r border-slate-200 flex-shrink-0 p-4">
+            <header class="text-center mb-6 pt-4">
+                <h1 class="text-2xl font-bold text-slate-800">মেশিন লার্নিং গাইড</h1>
+                <p class="text-slate-600 text-sm mt-1">নেভ বায়েস</p>
+            </header>
+            <div style="margin-top: 20px;">
+                    <a href="index.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="index.html">হোম
+                    </a>
+            </div>
+            <div style="margin-bottom: 20px;">
+                    <a href="saus.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="saus.html">প্রাম্ভিক ধারনা
+                    </a>
+            </div>
+
+            <nav id="main-nav" class="flex flex-col space-y-1">
+                <a class="nav-link active py-3 px-4 rounded-md" data-target="interactive_demo">নেভ বায়েস</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="theory">থিওরি ও গণিত</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="applications">ব্যবহারিক প্রয়োগ</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+            <!-- Interactive Demo Section -->
+            <section id="interactive_demo" class="content-section active">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                    <h2 class="text-2xl font-bold mb-4 text-slate-800">স্প্যাম ডিটেক্টর</h2>
+                    <p class="text-slate-600 mb-4">
+                        একটি বাক্য লিখুন এবং দেখুন কিভাবে নেভ বায়েস অ্যালগরিদম প্রতিটি শব্দের সম্ভাব্যতা গণনা করে সেটিকে 'স্প্যাম' বা 'নন-স্প্যাম' হিসেবে শ্রেণীবদ্ধ করে।
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-2 mb-6">
+                        <input type="text" id="textInput" class="flex-grow w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-cyan-500 focus:outline-none" placeholder="যেমন: free gift just for you">
+                        <button id="classifyBtn" class="bg-cyan-600 text-white font-bold py-2 px-6 rounded-md hover:bg-cyan-700 transition-colors">ক্লাসিফাই করুন</button>
+                    </div>
+                    <div id="resultContainer" class="mt-6 space-y-4">
+                        <!-- Results will be dynamically inserted here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Theory Section -->
+            <section id="theory" class="content-section">
+                <div id="theory_content_container"></div>
+            </section>
+
+            <!-- Applications Section -->
+            <section id="applications" class="content-section">
+                 <div id="applications_content_container"></div>
+            </section>
+        </main>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const contentData = {
+        theory: {
+            title: "থিওরি ও গাণিতিক ভিত্তি",
+            sections: [
+                {
+                    title: "নেভ বায়েস কী?",
+                    content: `
+                        <p>নেভ বায়েস হলো একটি সম্ভাব্যতা-ভিত্তিক (probabilistic) শ্রেণীকরণ অ্যালগরিদম যা বায়েসের উপপাদ্য এবং ফিচারগুলির মধ্যে একটি 'নেভ' বা সরল স্বাধীনতার অনুমানের উপর ভিত্তি করে কাজ করে। এর মূল উদ্দেশ্য হলো, প্রদত্ত ফিচারগুলির উপর ভিত্তি করে একটি ডেটা পয়েন্ট কোন ক্লাসের অন্তর্ভুক্ত তার সম্ভাব্যতা গণনা করা।</p>
+                        <p class="mt-2">এর 'নেভ' অনুমানটি হলো, প্রদত্ত ক্লাসের জন্য প্রতিটি ফিচার একে অপরের থেকে স্বাধীন। যদিও বাস্তবে এই অনুমানটি প্রায়শই সঠিক হয় না, তবুও নেভ বায়েস আশ্চর্যজনকভাবে ভালো পারফর্ম করে, বিশেষ করে টেক্সট ক্লাসিফিকেশনের মতো সমস্যাগুলিতে।</p>
+                    `
+                },
+                {
+                    title: "বায়েসের উপপাদ্য",
+                    content: `
+                        <p>নেভ বায়েসের গাণিতিক ভিত্তি হলো বায়েসের উপপাদ্য। এর সূত্রটি হলো:</p>
+                        <p class="my-4 text-center">$$ P(C|X) = \\frac{P(X|C) \\cdot P(C)}{P(X)} $$</p>
+                        <p>এখানে:</p>
+                        <ul class="list-disc list-inside space-y-1 mt-2">
+                           <li>$P(C|X)$: পোস্টেরিওর সম্ভাব্যতা। ফিচার $X$ দেওয়া থাকলে ক্লাস $C$ এর সম্ভাবনা।</li>
+                           <li>$P(X|C)$: লাইকলিহুড। ক্লাস $C$ দেওয়া থাকলে ফিচার $X$ এর সম্ভাবনা।</li>
+                           <li>$P(C)$: প্রায়র সম্ভাব্যতা। ক্লাস $C$ এর নিজস্ব সম্ভাবনা।</li>
+                           <li>$P(X)$: এভিডেন্স। ফিচার $X$ এর নিজস্ব সম্ভাবনা।</li>
+                        </ul>
+                        <p class="mt-2">'নেভ' স্বাধীনতার অনুমানের কারণে, $P(X|C)$ কে প্রতিটি ফিচারের ($x_i$) স্বাধীন সম্ভাবনার গুণফল হিসেবে লেখা যায়: $P(X|C) = P(x_1|C) \\cdot P(x_2|C) \\cdots P(x_n|C)$.</p>
+                    `
+                },
+                {
+                    title: "নেভ বায়েসের প্রকারভেদ",
+                    content: `
+                        <p>ডেটার প্রকৃতির উপর ভিত্তি করে নেভ বায়েসের বিভিন্ন প্রকার রয়েছে:</p>
+                        <ul class="list-disc list-inside space-y-2 mt-2">
+                           <li><b>গাউসিয়ান নেভ বায়েস:</b> অবিচ্ছিন্ন (continuous) ডেটার জন্য ব্যবহৃত হয়, যেখানে ধরে নেওয়া হয় ফিচারগুলি গাউসিয়ান বিতরণ অনুসরণ করে।</li>
+                           <li><b>মাল্টিনোমিয়াল নেভ বায়েস:</b> বিচ্ছিন্ন (discrete) ডেটার জন্য ব্যবহৃত হয়, যেমন টেক্সট ক্লাসিফিকেশনে শব্দের গণনা।</li>
+                           <li><b>বার্নোলি নেভ বায়েস:</b> বাইনারি (0/1) ডেটার জন্য ব্যবহৃত হয়, যেখানে ফিচারের উপস্থিতি বা অনুপস্থিতি বিবেচনা করা হয়।</li>
+                        </ul>
+                    `
+                },
+                 {
+                    title: "প্যারামিটার এবং হাইপারপ্যারামিটার",
+                    content: `
+                       <p>নেভ বায়েস একটি সরল মডেল যার কয়েকটি গুরুত্বপূর্ণ প্যারামিটার এবং হাইপারপ্যারামিটার রয়েছে।</p>
+                        <h4 class="font-semibold mt-4 mb-2">প্যারামিটার</h4>
+                        <ul class="list-disc list-inside space-y-1">
+                            <li><b>প্রায়র সম্ভাব্যতা ($P(C)$):</b> প্রতিটি ক্লাসের নিজস্ব সম্ভাব্যতা, যা প্রশিক্ষণ ডেটা থেকে গণনা করা হয়।</li>
+                            <li><b>শর্তাধীন সম্ভাব্যতা ($P(x_i|C)$):</b> প্রতিটি ক্লাসের অধীনে প্রতিটি ফিচারের সম্ভাব্যতা।</li>
+                        </ul>
+                        <h4 class="font-semibold mt-4 mb-2">হাইপারপ্যারামিটার</h4>
+                         <ul class="list-disc list-inside space-y-1">
+                            <li><b>alpha (ল্যাপ্লেস স্মুথিং):</b> শূন্য সম্ভাব্যতা সমস্যা এড়াতে ব্যবহৃত হয়। যখন কোনো শব্দ একটি ক্লাসে একবারও আসে না, তখন তার সম্ভাবনা শূন্য হয়ে যায়। আলফা একটি ছোট মান যোগ করে এই সমস্যাটি সমাধান করে। সাধারণত এর মান 1.0 রাখা হয়।</li>
+                         </ul>
+                    `
+                }
+            ]
+        },
+        applications: {
+            title: "ব্যবহারিক প্রয়োগ এবং মূল্যায়ন",
+            sections: [
+                {
+                    title: "বাস্তব-বিশ্বের ব্যবহার",
+                    content: `
+                        <p>নেভ বায়েসের সরলতা এবং কার্যকারিতার কারণে এটি বিভিন্ন ক্ষেত্রে ব্যবহৃত হয়:</p>
+                        <ul class="list-disc list-inside space-y-2 mt-2">
+                           <li><b>স্প্যাম ফিল্টারিং:</b> ইমেল স্প্যাম কিনা তা সনাক্ত করার জন্য এটি সবচেয়ে জনপ্রিয় প্রয়োগগুলির মধ্যে একটি।</li>
+                           <li><b>সেন্টিমেন্ট বিশ্লেষণ:</b> সোশ্যাল মিডিয়া পোস্ট বা পণ্য পর্যালোচনার অনুভূতি (ইতিবাচক, নেতিবাচক) বিশ্লেষণ করতে ব্যবহৃত হয়।</li>
+                           <li><b>সংবাদ শ্রেণীকরণ:</b> সংবাদ নিবন্ধগুলিকে তাদের বিষয়বস্তু অনুসারে বিভিন্ন বিভাগে (যেমন, খেলাধুলা, রাজনীতি, প্রযুক্তি) ভাগ করতে ব্যবহৃত হয়।</li>
+                           <li><b>চিকিৎসা রোগ নির্ণয়:</b> রোগীর লক্ষণগুলির উপর ভিত্তি করে কোনো নির্দিষ্ট রোগের সম্ভাবনা নির্ণয় করতে ব্যবহৃত হয়।</li>
+                        </ul>
+                    `
+                },
+                {
+                    title: "মডেল মূল্যায়ন মেট্রিক্স",
+                    content: `
+                        <p>নেভ বায়েস একটি শ্রেণীকরণ মডেল হওয়ায়, এর পারফরম্যান্স মূল্যায়নের জন্য সাধারণ মেট্রিক্স ব্যবহৃত হয়:</p>
+                        <div class="overflow-x-auto mt-4">
+                            <table class="min-w-full divide-y divide-slate-200">
+                                <thead class="bg-slate-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">মেট্রিক</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">ব্যাখ্যা</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-slate-200">
+                                    <tr><td class="px-4 py-2 font-medium">Accuracy</td><td class="px-4 py-2">সঠিক ভবিষ্যদ্বাণীর মোট অনুপাত।</td></tr>
+                                    <tr><td class="px-4 py-2 font-medium">Precision</td><td class="px-4 py-2">ধনাত্মক ভবিষ্যদ্বাণীগুলির মধ্যে কতগুলি সঠিক। (মিথ্যা ধনাত্মক কমানো)</td></tr>
+                                    <tr><td class="px-4 py-2 font-medium">Recall</td><td class="px-4 py-2">প্রকৃত ধনাত্মকগুলির মধ্যে কতগুলি সনাক্ত করা হয়েছে। (মিথ্যা ঋণাত্মক কমানো)</td></tr>
+                                    <tr><td class="px-4 py-2 font-medium">F1-Score</td><td class="px-4 py-2">Precision এবং Recall এর হারমোনিক গড়, বিশেষ করে ভারসাম্যহীন ডেটাসেটের জন্য উপযোগী।</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    `
+                }
+            ]
+        }
+    };
+    
+    // --- Navigation and Content Rendering ---
+    const mainNav = document.getElementById('main-nav');
+    
+    function buildAccordion(sections) {
+        return sections.map((section, index) => `
+            <div class="border border-slate-200 rounded-lg mb-3 bg-white shadow-sm">
+                <button class="accordion-button w-full text-left p-4 font-semibold text-lg text-slate-800 flex justify-between items-center hover:bg-slate-50" data-accordion-id="accordion-${index}">
+                    <span>${section.title}</span>
+                    <span class="transform transition-transform duration-300 text-cyan-600">▼</span>
+                </button>
+                <div id="accordion-${index}" class="accordion-content">
+                    <div class="p-4 pt-0 text-slate-700">${section.content}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderPage(targetId) {
+        const data = contentData[targetId];
+        if (!data) return;
+        const containerId = `${targetId}_content_container`;
+        const container = document.getElementById(containerId);
+        
+        let html = `<h2 class="text-3xl font-bold mb-6 text-slate-800">${data.title}</h2>`;
+        html += buildAccordion(data.sections);
+        container.innerHTML = html;
+        
+        document.querySelectorAll('.accordion-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const content = document.getElementById(button.dataset.accordionId);
+                const icon = button.querySelector('span:last-child');
+                const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+                
+                document.querySelectorAll('.accordion-content').forEach(el => {
+                    if (el !== content) {
+                         el.style.maxHeight = '0px';
+                         el.parentElement.querySelector('.accordion-button span:last-child').style.transform = 'rotate(0deg)';
+                    }
+                });
+
+                if (isOpen) {
+                    content.style.maxHeight = '0px';
+                    icon.style.transform = 'rotate(0deg)';
+                } else {
+                    content.style.maxHeight = content.scrollHeight + 30 + "px";
+                    icon.style.transform = 'rotate(180deg)';
+                }
+            });
+        });
+
+        if (window.renderMathInElement) {
+            renderMathInElement(container, {
+                delimiters: [ {left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false} ]
+            });
+        }
+    }
+
+    mainNav.addEventListener('click', (e) => {
+        if (e.target.tagName === 'A') {
+            const targetId = e.target.dataset.target;
+
+            mainNav.querySelectorAll('a').forEach(link => link.classList.remove('active'));
+            e.target.classList.add('active');
+            
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(targetId).classList.add('active');
+
+            if (targetId !== 'interactive_demo' && !document.getElementById(`${targetId}_content_container`).innerHTML) {
+                renderPage(targetId);
+            }
+        }
+    });
+
+    // --- Interactive Classifier Logic ---
+    const textInput = document.getElementById('textInput');
+    const classifyBtn = document.getElementById('classifyBtn');
+    const resultContainer = document.getElementById('resultContainer');
+
+    // Simplified knowledge base for the demo
+    const vocabulary = {
+        'free': { spam: 0.1, not_spam: 0.01 },
+        'gift': { spam: 0.08, not_spam: 0.005 },
+        'win': { spam: 0.07, not_spam: 0.001 },
+        'lottery': { spam: 0.06, not_spam: 0.0001 },
+        'money': { spam: 0.05, not_spam: 0.01 },
+        'hello': { spam: 0.01, not_spam: 0.1 },
+        'meeting': { spam: 0.005, not_spam: 0.08 },
+        'report': { spam: 0.001, not_spam: 0.07 },
+        'friend': { spam: 0.02, not_spam: 0.09 },
+        'send': { spam: 0.03, not_spam: 0.05 },
+    };
+    const prior = { spam: 0.4, not_spam: 0.6 };
+    const alpha = 1.0; // Laplace smoothing
+
+    function classifyText() {
+        const text = textInput.value.toLowerCase().trim();
+        if (!text) return;
+
+        const words = text.split(/\s+/).filter(w => w.length > 0);
+        
+        let posteriorSpam = Math.log(prior.spam);
+        let posteriorNotSpam = Math.log(prior.not_spam);
+        
+        let spamExplanation = `<li>$P(\\text{স্প্যাম}) = ${prior.spam.toFixed(2)}$</li>`;
+        let notSpamExplanation = `<li>$P(\\text{নন-স্প্যাম}) = ${prior.not_spam.toFixed(2)}$</li>`;
+
+        const totalSpamWords = Object.values(vocabulary).reduce((sum, val) => sum + val.spam, 0) * 1000; // Mock total counts
+        const totalNotSpamWords = Object.values(vocabulary).reduce((sum, val) => sum + val.not_spam, 0) * 1000;
+        const vocabSize = Object.keys(vocabulary).length;
+
+        for (const word of words) {
+            let spamLikelihood = (vocabulary[word] ? vocabulary[word].spam * 1000 : 0 + alpha) / (totalSpamWords + alpha * vocabSize);
+            let notSpamLikelihood = (vocabulary[word] ? vocabulary[word].not_spam * 1000 : 0 + alpha) / (totalNotSpamWords + alpha * vocabSize);
+            
+            // For display purposes, use the direct probability if known, else show smoothing
+            let p_word_spam = vocabulary[word] ? vocabulary[word].spam : `$\\approx \\frac{0+${alpha}}{${Math.round(totalSpamWords)}+${alpha}*${vocabSize}}$`;
+            let p_word_not_spam = vocabulary[word] ? vocabulary[word].not_spam : `$\\approx \\frac{0+${alpha}}{${Math.round(totalNotSpamWords)}+${alpha}*${vocabSize}}$`;
+
+            posteriorSpam += Math.log(spamLikelihood);
+            posteriorNotSpam += Math.log(notSpamLikelihood);
+            
+            spamExplanation += `<li>$P(\\text{"${word}"}|\\text{স্প্যাম}) = ${typeof p_word_spam === 'number' ? p_word_spam.toFixed(4) : p_word_spam}$</li>`;
+            notSpamExplanation += `<li>$P(\\text{"${word}"}|\\text{নন-স্প্যাম}) = ${typeof p_word_not_spam === 'number' ? p_word_not_spam.toFixed(4) : p_word_not_spam}$</li>`;
+        }
+
+        const isSpam = posteriorSpam > posteriorNotSpam;
+
+        resultContainer.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-4 rounded-lg border ${isSpam ? 'border-red-500 bg-red-50' : 'border-slate-300'}">
+                    <h3 class="font-bold text-lg text-red-700">স্প্যাম স্কোর</h3>
+                    <p class="text-2xl font-mono">${posteriorSpam.toFixed(4)}</p>
+                    <ul class="text-sm mt-2 space-y-1 text-slate-600">${spamExplanation}</ul>
+                </div>
+                <div class="p-4 rounded-lg border ${!isSpam ? 'border-green-500 bg-green-50' : 'border-slate-300'}">
+                    <h3 class="font-bold text-lg text-green-700">নন-স্প্যাম স্কোর</h3>
+                    <p class="text-2xl font-mono">${posteriorNotSpam.toFixed(4)}</p>
+                    <ul class="text-sm mt-2 space-y-1 text-slate-600">${notSpamExplanation}</ul>
+                </div>
+            </div>
+            <div class="mt-6 text-center">
+                <h3 class="text-xl font-semibold">ফলাফল:
+                    <span class="px-4 py-1 rounded-full ${isSpam ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">
+                        ${isSpam ? 'স্প্যাম' : 'নন-স্প্যাম'}
+                    </span>
+                </h3>
+                <p class="text-sm text-slate-500 mt-2">(স্কোরগুলি লগ-সম্ভাব্যতা, উচ্চতর স্কোর বিজয়ী)</p>
+            </div>
+        `;
+        if (window.renderMathInElement) {
+            renderMathInElement(resultContainer);
+        }
+    }
+
+    classifyBtn.addEventListener('click', classifyText);
+    textInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            classifyText();
+        }
+    });
+
+    // Pre-populate demo
+    textInput.value = 'free gift for you';
+    classifyText();
+});
+</script>
+</body>
+</html>

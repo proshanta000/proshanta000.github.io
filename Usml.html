@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ইন্টারেক্টিভ আনসুপারভাইজড লার্নিং এক্সপ্লোরার</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" xintegrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI76/y2JTapbKCMKrqDhVpIENB" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js" xintegrity="sha384-X/XCfMm41YSfkJfxwcqcZQLpTsEFfs4UuMznY6krLQSdSITd08SRqGNWsoRTGjJun" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js" xintegrity="sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR" crossorigin="anonymous"></script>
+
+    <!-- Chosen Palette: Scholarly Mint -->
+    <!-- Application Structure Plan: The SPA is structured as a comprehensive learning suite for unsupervised algorithms. A persistent left sidebar provides clear, top-level navigation between PCA, K-Means, Hierarchical Clustering, DBSCAN, Silhouette Clustering, and Model Evaluation Metrics. This thematic organization allows users to focus on one algorithm or a related concept at a time. Each algorithm's page is further divided into an "Interactive Demo" and a "Theory & Details" section. The demo is prioritized to encourage hands-on learning first. The detailed text from the source reports is placed within collapsible accordions in the theory section, preventing information overload and allowing users to "pull" information as they need it. This layered, interactive-first design is chosen for optimal learning and user engagement. The new "Silhouette Clustering" section explicitly focuses on this key evaluation metric, including a dedicated demo, while the "Model Evaluation Metrics" section provides broader context and references the specific Silhouette tab. -->
+    <!-- Visualization & Content Choices: 1. PCA Demo -> Goal: Visualize dimensionality reduction. -> Viz/Method: A Chart.js scatter plot shows 2D data. -> Interaction: A slider allows the user to select the number of principal components (2 or 1). When '1' is selected, the chart updates to show the data points projected onto the first principal component (a line), visually demonstrating the reduction process. -> Justification: Makes the abstract concept of projecting data onto a lower dimension tangible. 2. K-Means Demo -> Goal: Show iterative clustering. -> Viz/Method: A Chart.js scatter plot. -> Interaction: User selects 'K' with a slider. A "Next Step" button walks through the algorithm: assigning points to centroids (coloring) and updating centroid positions. -> Justification: This step-by-step approach demystifies the iterative nature of K-Means. 3. Hierarchical Clustering Demo -> Goal: Connect the dendrogram to the actual clustering. -> Viz/Method: A scatter plot and a dynamically generated HTML/CSS dendrogram are displayed side-by-side. -> Interaction: User selects a linkage method. A slider controls a "distance threshold" line on the dendrogram. As the line moves, the number of clusters changes, and both the dendrogram and the scatter plot update in real-time to reflect the clusters formed at that threshold. -> Justification: Creates a powerful, direct link between the abstract dendrogram and the practical grouping of data points. 4. DBSCAN Demo -> Goal: Illustrate density-based clustering. -> Viz/Method: A Chart.js scatter plot. -> Interaction: Sliders control `eps` (neighborhood radius) and `min_samples` (core point threshold). The chart updates to show core points, border points, and noise, along with the formed clusters. -> Justification: Clearly demonstrates how density parameters affect cluster formation and noise detection. 5. Silhouette Clustering Demo -> Goal: Demonstrate the calculation and interpretation of Silhouette Score for K-Means clustering. -> Viz/Method: A Chart.js scatter plot displaying clustered data, and a textual display of the average Silhouette Score. -> Interaction: User selects 'K' for K-Means, triggering a clustering process and subsequent Silhouette Score calculation, allowing observation of how different 'K' values impact the score. -> Justification: Provides a hands-on way to understand a key clustering evaluation metric and its sensitivity to the number of clusters. 6. Model Evaluation Metrics -> Goal: Inform about quantitative measures for clustering quality. -> Viz/Method: Textual explanations with KaTeX formulas within accordions. -> Interaction: Collapsible sections for detailed understanding. -> Justification: Provides necessary theoretical depth for understanding how to evaluate clustering results, now referencing the specific Silhouette tab for in-depth information on that metric. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+            background-color: #f0fdfa; /* mint-50 */
+            color: #1e293b; /* slate-800 */
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+        
+        .katex { font-size: 1.1em !important; }
+        .nav-link {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .nav-link.active {
+            color: #047857; /* emerald-600 */
+            background-color: #d1fae5; /* emerald-100 */
+            font-weight: 600;
+            border-right: 4px solid #059669;
+        }
+        .nav-link:not(.active):hover {
+            background-color: #f1f5f9; /* slate-100 */
+        }
+        .content-section { display: none; }
+        .content-section.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .accordion-button { transition: background-color 0.2s ease-in-out; }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-in-out, padding 0.4s ease-in-out;
+            padding: 0 1.5rem;
+        }
+        .chart-container {
+            position: relative;
+            height: 450px;
+            max-height: 60vh;
+            width: 100%;
+        }
+        .dendrogram-container {
+            position: relative;
+            height: 450px;
+            max-height: 60vh;
+            width: 100%;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            display: flex;
+            align-items: flex-end; /* Align to bottom for dendrogram */
+            justify-content: center;
+        }
+
+        /* Basic dendrogram drawing */
+        .dendrogram-node {
+            position: absolute;
+            background-color: #64748b; /* slate-500 */
+        }
+        .dendrogram-vertical-line {
+            width: 1px;
+            bottom: 0; /* Base of the line */
+        }
+        .dendrogram-horizontal-line {
+            height: 1px;
+            bottom: 0; /* Base of the line */
+        }
+    </style>
+</head>
+<body>
+    <div class="flex flex-col md:flex-row min-h-screen bg-slate-50">
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-72 bg-white border-r border-slate-200 flex-shrink-0 p-4">
+            <header class="text-center mb-6 pt-4">
+                <h1 class="text-2xl font-bold text-slate-800">আনসুপারভাইজড লার্নিং</h1>
+                <p class="text-slate-600 text-sm mt-1">ইন্টারেক্টিভ এক্সপ্লোরার</p>
+            </header>
+
+            <nav id="main-nav" class="flex flex-col space-y-1">
+                <a class="nav-link active py-3 px-4 rounded-l-md" data-target="pca">PCA</a>
+                <a class="nav-link py-3 px-4 rounded-l-md" data-target="kmeans">K-Means ক্লাস্টারিং</a>
+                <a class="nav-link py-3 px-4 rounded-l-md" data-target="hierarchical">হায়ারার্কিক্যাল ক্লাস্টারিং</a>
+                <a class="nav-link py-3 px-4 rounded-l-md" data-target="dbscan">DBSCAN ক্লাস্টারিং</a>
+                <a class="nav-link py-3 px-4 rounded-l-md" data-target="silhouette_clustering">সিলুয়েট ক্লাস্টারিং</a>
+                <a class="nav-link py-3 px-4 rounded-l-md" data-target="evaluation_metrics">মূল্যায়ন মেট্রিক্স</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+            
+            <section id="pca" class="content-section active"></section>
+            <section id="kmeans" class="content-section"></section>
+            <section id="hierarchical" class="content-section"></section>
+            <section id="dbscan" class="content-section"></section>
+            <section id="silhouette_clustering" class="content-section"></section>
+            <section id="evaluation_metrics" class="content-section"></section>
+
+        </main>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    // --- Data Store ---
+    const contentData = {
+        pca: {
+            title: "প্রিন্সিপাল কম্পোনেন্ট অ্যানালাইসিস (PCA)",
+            demo: {
+                title: "ইন্টারেক্টিভ PCA ডেমো",
+                description: "এই ডেমোটি দেখায় কিভাবে PCA উচ্চ-মাত্রিক ডেটাকে নিম্ন-মাত্রিক স্থানে রূপান্তর করে। স্লাইডার ব্যবহার করে প্রিন্সিপাল কম্পোনেন্টের সংখ্যা পরিবর্তন করুন এবং দেখুন কিভাবে ডেটা পয়েন্টগুলি প্রজেক্ট করা হয়। যখন কম্পোনেন্টের সংখ্যা ১ হয়, তখন ডেটা প্রথম প্রিন্সিপাল কম্পোনেন্ট (PC1) বরাবর একটি লাইনে প্রজেক্ট করা হয়, যা ডেটার সর্বাধিক বৈচিত্র্যকে ধরে রাখে।",
+            },
+            theorySections: [
+                {
+                    title: "ভূমিকা",
+                    content: `প্রিন্সিপাল কম্পোনেন্ট অ্যানালাইসিস (PCA) হলো মেশিন লার্নিংয়ের একটি শক্তিশালী এবং ব্যাপকভাবে ব্যবহৃত আনসুপারভাইজড লার্নিং অ্যালগরিদম। এর প্রধান কাজ হলো ডেটা সেট থেকে 'ডাইমেনশনালিটি রিডাকশন' বা মাত্রা কমানো। যখন একটি ডেটা সেটে প্রচুর ফিচার বা মাত্রা থাকে, তখন ডেটা বিশ্লেষণ করা, ভিজ্যুয়ালাইজ করা এবং মেশিন লার্নিং মডেলগুলিকে প্রশিক্ষণ দেওয়া কঠিন ও সময়সাপেক্ষ হয়ে ওঠে। PCA এই সমস্যা সমাধানের জন্য ডিজাইন করা হয়েছে, যেখানে এটি ডেটার মূল বৈশিষ্ট্য বা 'প্রিন্সিপাল কম্পোনেন্ট' খুঁজে বের করে, যা ডেটার সর্বাধিক বৈচিত্র্যকে ধরে রাখে।`
+                },
+                {
+                    title: "গাণিতিক ভিত্তি",
+                    content: `PCA একটি পরিসংখ্যানগত পদ্ধতি যা ডেটা সেটকে রৈখিক রূপান্তরের মাধ্যমে একটি নতুন সমন্বয় ব্যবস্থায় পরিবর্তন করে। এই নতুন অক্ষ বা "প্রিন্সিপাল কম্পোনেন্ট"গুলি এমনভাবে নির্বাচন করা হয় যাতে ডেটার সর্বাধিক বৈচিত্র্য প্রথম কম্পোনেন্টে, তারপর দ্বিতীয় কম্পোনেন্টে, এবং এভাবেই পর্যায়ক্রমে ধারণ করা হয়। এর মূল ধাপগুলি হলো ডেটা স্ট্যান্ডার্ডাইজেশন, কভারেজ ম্যাট্রিক্স গণনা, আইগেনভেক্টর ও আইগেনভ্যালু গণনা, প্রিন্সিপাল কম্পোনেন্ট নির্বাচন এবং ডেটা রূপান্তর।`
+                },
+                 {
+                    title: "প্যারামিটার",
+                    content: `PCA-এর প্রধান প্যারামিটারটি হলো <code>n_components</code>, যা নির্দেশ করে কতগুলি প্রধান উপাদান বজায় রাখা হবে।`
+                },
+                {
+                    title: "ব্যবহারিক প্রয়োগ",
+                    content: `PCA ফেস রিকগনিশন, ইমেজ কমপ্রেশন, ডেটা ভিজ্যুয়ালাইজেশন, এবং জিনোমিক ডেটা অ্যানালাইসিসের মতো বিভিন্ন ক্ষেত্রে ব্যবহৃত হয়।`
+                },
+                {
+                    title: "মূল্যায়ন",
+                    content: `PCA-এর কার্যকারিতা 'এক্সপ্লেইন্ড ভ্যারিয়েন্স রেশিও' দ্বারা মূল্যায়ন করা হয়, যা দেখায় প্রতিটি কম্পোনেন্ট মোট বৈচিত্র্যের কত শতাংশ ব্যাখ্যা করে। এছাড়াও, এই মডেলের মূল্যায়নের জন্য <a href="#evaluation_metrics" class="text-emerald-700 hover:underline">মূল্যায়ন মেট্রিক্স</a> বিভাগে অন্যান্য আনসুপারভাইজড ক্লাস্টারিং মডেলের মূল্যায়ন মেট্রিক্স সম্পর্কে আরও বিস্তারিত জানতে পারবেন।`
+                }
+            ]
+        },
+        kmeans: {
+            title: "K-Means ক্লাস্টারিং",
+            demo: {
+                title: "ইন্টারেক্টিভ K-Means ডেমো",
+                description: "এই ডেমোটি K-Means ক্লাস্টারিং অ্যালগরিদমের পুনরাবৃত্তিমূলক প্রক্রিয়া দেখায়। 'K' এর মান নির্বাচন করুন এবং প্রতিটি ধাপ দেখতে 'পরবর্তী ধাপ' বাটনে ক্লিক করুন। আপনি দেখবেন কিভাবে ডেটা পয়েন্টগুলি তাদের নিকটতম সেন্ট্রয়েডে অ্যাসাইন করা হয় (রঙ পরিবর্তন) এবং তারপর সেন্ট্রয়েডগুলি তাদের নতুন কেন্দ্রের দিকে চলে যায়।",
+            },
+            theorySections: [
+                {
+                    title: "ভূমিকা",
+                    content: `K-Means ক্লাস্টারিং হলো মেশিন লার্নিংয়ের অন্যতম জনপ্রিয় এবং বহুল ব্যবহৃত আনসুপারভাইজড লার্নিং অ্যালগরিদম। এর প্রধান উদ্দেশ্য হলো ডেটাসেটের মধ্যেকার ডেটা পয়েন্টগুলিকে তাদের সাদৃশ্য (similarity) এর ভিত্তিতে 'K' সংখ্যক স্বতন্ত্র গ্রুপ বা ক্লাস্টারে বিভক্ত করা।`
+                },
+                {
+                    title: "গাণিতিক ভিত্তি",
+                    content: `K-Means একটি পুনরাবৃত্তিমূলক প্রক্রিয়া যা ডেটা পয়েন্টগুলিকে $K$ সংখ্যক ক্লাস্টারে বিভক্ত করে, যাতে প্রতিটি ক্লাস্টারের মধ্যে ডেটা পয়েন্টগুলি তাদের সেন্ট্রয়েডের (গড়) কাছাকাছি থাকে। এর ধাপগুলি হলো সেন্ট্রয়েড ইনিশিয়ালাইজেশন, ডেটা পয়েন্ট অ্যাসাইনমেন্ট এবং সেন্ট্রয়েড আপডেট। এর উদ্দেশ্য হলো ক্লাস্টারের মধ্যেকার Sum of Squared Errors (SSE) বা Inertia-কে ন্যূনতম করা।`
+                },
+                {
+                    title: "প্যারামিটার",
+                    content: `K-Means এর প্রধান প্যারামিটার হলো <code>n_clusters</code> (K)। সঠিক K নির্ধারণ করার জন্য 'এলবো মেথড' এবং <a href="#silhouette_clustering" class="text-emerald-700 hover:underline">সিলুয়েট স্কোর</a> এর মতো পদ্ধতি ব্যবহার করা হয়।`
+                },
+                {
+                    title: "ব্যবহারিক প্রয়োগ",
+                    content: `K-Means গ্রাহক বিভাজন, ডকুমেন্ট ক্লাস্টারিং, ইমেজ সেগমেন্টেশন এবং জালিয়াতি সনাক্তকরণের মতো বিভিন্ন ক্ষেত্রে ব্যবহৃত হয়।`
+                },
+                {
+                    title: "মূল্যায়ন",
+                    content: `K-Means এর মূল্যায়নের জন্য <a href="#evaluation_metrics" class="text-emerald-700 hover:underline">মূল্যায়ন মেট্রিক্স</a> বিভাগে অন্যান্য আনসুপারভাইজড ক্লাস্টারিং মডেলের মূল্যায়ন মেট্রিক্স সম্পর্কে আরও বিস্তারিত জানতে পারবেন।`
+                }
+            ]
+        },
+        hierarchical: {
+            title: "হায়ারার্কিক্যাল ক্লাস্টারিং",
+            demo: {
+                title: "ইন্টারেক্টিভ হায়ারার্কিক্যাল ক্লাস্টারিং ডেমো",
+                description: "এই ডেমোটি হায়ারার্কিক্যাল ক্লাস্টারিং এবং ডেন্ড্রোগ্রামের মধ্যেকার সম্পর্ক দেখায়। একটি লিংকেজ পদ্ধতি নির্বাচন করুন এবং তারপর স্লাইডার ব্যবহার করে 'দূরত্ব থ্রেশহোল্ড' পরিবর্তন করুন। আপনি দেখবেন কিভাবে ডেন্ড্রোগ্রামে একটি অনুভূমিক রেখা চলে যায় এবং সেই অনুযায়ী স্ক্যাটার প্লটে ক্লাস্টারগুলি গঠিত হয়।",
+            },
+            theorySections: [
+                {
+                    title: "ভূমিকা",
+                    content: `হায়ারার্কিক্যাল ক্লাস্টারিং একটি আনসুপারভাইজড লার্নিং অ্যালগরিদম, যা ডেটা পয়েন্টগুলিকে একটি গাছের মতো কাঠামো বা 'ডেন্ড্রোগ্রাম' তৈরি করে ক্লাস্টার করে। এর প্রধান সুবিধা হলো ক্লাস্টারের সংখ্যা ($K$) পূর্বনির্ধারণের প্রয়োজন হয় না।`
+                },
+                {
+                    title: "গাণিতিক ভিত্তি",
+                    content: `এটি দুটি প্রধান প্রকারে বিভক্ত: অ্যাগ্লোমেরেটিভ (বটম-আপ) এবং ডিভিসিভ (টপ-ডাউন)। ক্লাস্টারগুলির মধ্যে দূরত্ব পরিমাপ করতে বিভিন্ন লিংকেজ ক্রাইটেরিয়া (যেমন, single, complete, average, ward) ব্যবহার করা হয়।`
+                },
+                {
+                    title: "প্যারামিটার",
+                    content: `এর প্রধান প্যারামিটারগুলি হলো <code>linkage</code> এবং <code>affinity</code> (দূরত্বের মেট্রিক)। ক্লাস্টারের সংখ্যা ডেন্ড্রোগ্রাম থেকে নির্বাচন করা যায় অথবা <code>n_clusters</code> বা <code>distance_threshold</code> দিয়ে নির্দিষ্ট করা যায়।`
+                },
+                {
+                    title: "ব্যবহারিক প্রয়োগ",
+                    content: `এটি জীববিদ্যা, মার্কেট সেগমেন্টেশন, এবং সামাজিক নেটওয়ার্ক বিশ্লেষণের মতো ক্ষেত্রে ব্যবহৃত হয় যেখানে ডেটার শ্রেণীবদ্ধ কাঠামো বোঝা গুরুত্বপূর্ণ।`
+                },
+                {
+                    title: "মূল্যায়ন",
+                    content: `হায়ারার্কিক্যাল ক্লাস্টারিংয়ের মূল্যায়নের জন্য <a href="#evaluation_metrics" class="text-emerald-700 hover:underline">মূল্যায়ন মেট্রিক্স</a> বিভাগে অন্যান্য আনসুপারভাইজড ক্লাস্টারিং মডেলের মূল্যায়ন মেট্রিক্স সম্পর্কে আরও বিস্তারিত জানতে পারবেন।`
+                }
+            ]
+        },
+        dbscan: {
+            title: "DBSCAN ক্লাস্টারিং",
+            demo: {
+                title: "ইন্টারেক্টিভ DBSCAN ডেমো",
+                description: "এই ডেমোটি DBSCAN ক্লাস্টারিং অ্যালগরিদমের কার্যকারিতা দেখায়। <code>Epsilon (eps)</code> এবং <code>Min Samples</code> প্যারামিটার পরিবর্তন করে দেখুন কিভাবে ক্লাস্টারগুলি গঠিত হয়, এবং ডেটা পয়েন্টগুলি কোর পয়েন্ট, বর্ডার পয়ট বা নয়েজ পয়েন্ট হিসাবে চিহ্নিত হয়।",
+            },
+            theorySections: [
+                {
+                    title: "ভূমিকা",
+                    content: `DBSCAN (Density-Based Spatial Clustering of Applications with Noise) হলো একটি শক্তিশালী ডেনসিটি-ভিত্তিক ক্লাস্টারিং অ্যালগরিদম যা ডেটা সেট থেকে বিভিন্ন আকারের ক্লাস্টার এবং নয়েজ পয়েন্ট (আউটলায়ার) সনাক্ত করতে পারে। K-Means বা হায়ারার্কিক্যাল ক্লাস্টারিংয়ের মতো এটিতে ক্লাস্টারের সংখ্যা পূর্বনির্ধারণের প্রয়োজন হয় না।`
+                },
+                {
+                    title: "গাণিতিক ভিত্তি",
+                    content: `DBSCAN এর মূল ধারণা হলো ডেটার ঘনত্বের উপর ভিত্তি করে ক্লাস্টার তৈরি করা। এটি তিনটি প্রধান ধরনের পয়েন্ট সংজ্ঞায়িত করে: <ul><li><b>কোর পয়েন্ট (Core Point):</b> একটি ডেটা পয়েন্টকে কোর পয়েন্ট বলা হয় যদি এর <code>Epsilon (eps)</code> ব্যাসার্ধের মধ্যে কমপক্ষে <code>Min Samples</code> সংখ্যক প্রতিবেশী পয়েন্ট থাকে।</li><li><b>বর্ডার পয়েন্ট (Border Point):</b> একটি পয়েন্ট যা কোর পয়েন্ট নয় কিন্তু একটি কোর পয়েন্টের <code>eps</code> ব্যাসার্ধের মধ্যে পড়ে।</li><li><b>নয়েজ পয়েন্ট (Noise Point):</b> যে পয়েন্ট কোর পয়েন্ট বা বর্ডার পয়েন্ট কোনোটাই নয়।</li></ul> ক্লাস্টারগুলি 'ডেনসিটি-রিচেবিলিটি' এবং 'ডেনসিটি-কনেকটিভিটি' ধারণার উপর ভিত্তি করে গঠিত হয়।`
+                },
+                {
+                    title: "প্যারামিটার",
+                    content: `DBSCAN এর দুটি প্রধান প্যারামিটার হলো <code>eps</code> এবং <code>min_samples</code>। <code>eps</code> একটি পয়েন্টের আশেপাশের অঞ্চলের ব্যাসার্ধ নির্ধারণ করে, এবং <code>min_samples</code> একটি কোর পয়েন্ট হওয়ার জন্য প্রয়োজনীয় সর্বনিম্ন পয়েন্টের সংখ্যা।`
+                },
+                {
+                    title: "ব্যবহারিক প্রয়োগ",
+                    content: `DBSCAN ভূ-স্থানিক ডেটা ক্লাস্টারিং, অস্বাভাবিকতা সনাক্তকরণ (anomaly detection) এবং জৈবিক ডেটা বিশ্লেষণে ব্যাপকভাবে ব্যবহৃত হয়।`
+                },
+                {
+                    title: "মূল্যায়ন",
+                    content: `DBSCAN এর মূল্যায়নের জন্য <a href="#evaluation_metrics" class="text-emerald-700 hover:underline">মূল্যায়ন মেট্রিক্স</a> বিভাগে অন্যান্য আনসুপারভাইজড ক্লাস্টারিং মডেলের মূল্যায়ন মেট্রিক্স সম্পর্কে আরও বিস্তারিত জানতে পারবেন।`
+                }
+            ]
+        },
+        silhouette_clustering: {
+            title: "সিলুয়েট ক্লাস্টারিং",
+            demo: {
+                title: "ইন্টারেক্টিভ সিলুয়েট স্কোর ডেমো",
+                description: "এই ডেমোটি K-Means ক্লাস্টারিংয়ের জন্য সিলুয়েট স্কোর কীভাবে গণনা করা হয় এবং বিভিন্ন 'K' মানের জন্য এটি কীভাবে পরিবর্তিত হয় তা দেখায়। 'K' এর মান নির্বাচন করুন এবং দেখুন ডেটা কীভাবে ক্লাস্টার করা হয় এবং সামগ্রিক সিলুয়েট স্কোর কত হয়।",
+            },
+            theorySections: [
+                {
+                    title: "সিলুয়েট স্কোর (Silhouette Score)",
+                    content: `
+                        <p>সিলুয়েট স্কোর হলো একটি মেট্রিক যা প্রতিটি ডেটা পয়েন্ট তার নিজের ক্লাস্টারের সাথে কতটা সামঞ্জস্যপূর্ণ এবং অন্যান্য ক্লাস্টার থেকে কতটা আলাদা তা পরিমাপ করে। স্কোরটি <b>-1 থেকে +1</b> এর মধ্যে থাকে।</p>
+                        <ul>
+                            <li><b>+1 এর কাছাকাছি:</b> ডেটা পয়েন্টটি তার নিজের ক্লাস্টারের থেকে সুদূর এবং সুসংজ্ঞায়িত। এটি নির্দেশ করে যে ডেটা পয়েন্টটি তার নিজের ক্লাস্টারের মধ্যে সুসংহতভাবে ফিট করে এবং প্রতিবেশী ক্লাস্টার থেকে পরিষ্কারভাবে আলাদা।</li>
+                            <li><b>0 এর কাছাকাছি:</b> ডেটা পয়েন্টটি দুটি ক্লাস্টারের সীমানায় রয়েছে বা দুটি ক্লাস্টারের কাছাকাছি। এটি ইঙ্গিত করে যে ডেটা পয়েন্টটি ক্লাস্টারের প্রান্তে বা দুটি ক্লাস্টারের ওভারল্যাপ অঞ্চলে অবস্থিত, যা একটি দুর্বল ক্লাস্টারিং নির্দেশ করে।</li>
+                            <li><b>-1 এর কাছাকাছি:</b> ডেটা পয়েন্টটি ভুল ক্লাস্টারে অ্যাসাইন করা হয়েছে। এটি বোঝায় যে ডেটা পয়েন্টটি তার নিজের ক্লাস্টারের চেয়ে অন্য একটি ক্লাস্টারের সেন্ট্রয়েডের কাছাকাছি।</li>
+                        </ul>
+                        <p>সিলুয়েট স্কোরের গড় মান (সমস্ত ডেটা পয়েন্টের জন্য) একটি ক্লাস্টারিং কনফিগারেশনের সামগ্রিক গুণমান নির্দেশ করে। উচ্চতর গড় সিলুয়েট স্কোর ভালো, সুসংজ্ঞায়িত ক্লাস্টারিং নির্দেশ করে।</p>
+                        <h4 class="mt-4 font-semibold">সূত্র:</h4>
+                        <p>একটি ডেটা পয়েন্ট $i$ এর জন্য সিলুয়েট স্কোর $S(i)$ নিম্নলিখিত সূত্র দ্বারা সংজ্ঞায়িত করা হয়:</p>
+                        <p>$$S(i) = \\frac{b(i) - a(i)}{\\max(a(i), b(i))}$$</p>
+                        <p>যেখানে:</p>
+                        <ul>
+                            <li>$a(i)$: ডেটা পয়েন্ট $i$ এবং তার নিজের ক্লাস্টারের অন্যান্য সমস্ত ডেটা পয়েন্টের মধ্যে গড় দূরত্ব (ইন্ট্রা-ক্লাস্টার দূরত্ব)। একটি ছোট $a(i)$ ভালো ফিট নির্দেশ করে।</li>
+                            <li>$b(i)$: ডেটা পয়েন্ট $i$ এবং তার নিকটতম প্রতিবেশী ক্লাস্টারের (অর্থাৎ, যে ক্লাস্টারের সাথে $i$ এর গড় দূরত্ব সবচেয়ে কম কিন্তু $i$ সেই ক্লাস্টারের অংশ নয়) সমস্ত ডেটা পয়েন্টের মধ্যে গড় দূরত্ব (ইন্টার-ক্লাস্টার দূরত্ব)।</li>
+                        </ul>
+                        <h4 class="mt-4 font-semibold">কখন ব্যবহার করবেন:</h4>
+                        <ul>
+                            <li>ক্লাস্টারের সংখ্যা (K) নির্ধারণ করতে: বিভিন্ন K মানের জন্য ক্লাস্টারিং চালান এবং সর্বোচ্চ গড় সিলুয়েট স্কোর সহ K নির্বাচন করুন।</li>
+                            <li>বিভিন্ন ক্লাস্টারিং অ্যালগরিদমগুলির (যেমন K-Means বনাম Hierarchical) কার্যকারিতা তুলনা করতে।</li>
+                            <li>ক্লাস্টারিংয়ের সামগ্রিক গুণমান মূল্যায়ন করতে, বিশেষ করে যখন প্রকৃত ক্লাস লেবেলগুলি অজানা থাকে।</li>
+                        </ul>
+                    `
+                },
+                {
+                    title: "সিলুয়েট স্কোরের সীমাবদ্ধতা",
+                    content: `
+                        <p>সিলুয়েট স্কোরের কিছু সীমাবদ্ধতা রয়েছে:</p>
+                        <ul>
+                            <li><b>বৃত্তাকার ক্লাস্টারের পক্ষপাত:</b> সিলুয়েট স্কোর বৃত্তাকার ক্লাস্টারের ক্ষেত্রে সবচেয়ে ভালো কাজ করে এবং অনিয়মিত আকারের বা ডেনসিটি-ভিত্তিক ক্লাস্টারগুলির (যেমন DBSCAN দ্বারা গঠিত) মূল্যায়নে কম কার্যকর হতে পারে।</li>
+                            <li><b>মাত্রার অভিশাপ (Curse of Dimensionality):</b> উচ্চ-মাত্রিক ডেটার ক্ষেত্রে, দূরত্বের পরিমাপ কম নির্ভরযোগ্য হয়ে ওঠে, যা সিলুয়েট স্কোরের কার্যকারিতাকে প্রভাবিত করতে পারে।</li>
+                            <li><b>ব্যক্তিগত ব্যাখ্যার প্রয়োজন:</b> শুধুমাত্র স্কোরের উপর নির্ভর না করে, ক্লাস্টারগুলির ভিজ্যুয়ালাইজেশন এবং ডোমেন জ্ঞান ব্যবহার করে ফলাফল ব্যাখ্যা করা গুরুত্বপূর্ণ।</li>
+                        </ul>
+                    `
+                }
+            ]
+        },
+        evaluation_metrics: {
+            title: "আনসুপারভাইজড মডেল মূল্যায়ন মেট্রিক্স",
+            demo: {
+                title: "মূল্যায়ন মেট্রিক্স পরিচিতি",
+                description: "আনসুপারভাইজড ক্লাস্টারিং মডেলের পারফরম্যান্স মূল্যায়নের জন্য বিভিন্ন মেট্রিক্স ব্যবহার করা হয়, কারণ এখানে কোনো পূর্বনির্ধারিত লেবেল নেই। এই মেট্রিক্সগুলি ক্লাস্টারের অভ্যন্তরীণ সাদৃশ্য এবং ক্লাস্টারগুলির মধ্যেকার ভিন্নতা পরিমাপ করে। সিলুয়েট স্কোর সম্পর্কে বিস্তারিত জানতে, অনুগ্রহ করে <a href=\"#silhouette_clustering\" class=\"text-emerald-700 hover:underline\">সিলুয়েট ক্লাস্টারিং</a> ট্যাবটি দেখুন।"
+            },
+            theorySections: [
+                {
+                    title: "ভূমিকা: আনসুপারভাইজড মূল্যায়ন কেন ভিন্ন?",
+                    content: `সুপারভাইজড লার্নিংয়ের ক্ষেত্রে, মডেলের পারফরম্যান্স মূল্যায়নের জন্য 'একুরেসি' বা 'প্রিসিশন' এর মতো মেট্রিক্স ব্যবহার করা হয় কারণ আমাদের কাছে 'সঠিক' লেবেল থাকে। কিন্তু আনসুপারভাইজড লার্নিং (যেমন ক্লাস্টারিং)-এর ক্ষেত্রে, ডেটা লেবেলবিহীন থাকে, তাই এই ধরনের মেট্রিক্স ব্যবহার করা যায় না। পরিবর্তে, আমরা ক্লাস্টারের 'গুণমান' পরিমাপ করি – অর্থাৎ, ডেটা পয়েন্টগুলি একটি ক্লাস্টারের মধ্যে কতটা কাছাকাছি (কোম্প্যাক্টনেস) এবং বিভিন্ন ক্লাস্টারগুলি একে অপরের থেকে কতটা দূরে (সেপারেশন)।`
+                },
+                {
+                    title: "ডেভিস-বোল্ডিন সূচক (Davies-Bouldin Index - DBI)",
+                    content: `
+                        <p>ডেভিস-বোল্ডিন সূচক (DBI) ক্লাস্টারের ঘনত্ব এবং ক্লাস্টারগুলির মধ্যেকার দূরত্বের অনুপাতকে পরিমাপ করে। একটি <b>কম DBI মান</b> মানে ভালো ক্লাস্টারিং, যেখানে ক্লাস্টারগুলি ঘন (কম্প্যাক্ট) এবং একে অপরের থেকে দূরে (বিচ্ছিন্ন)।</p>
+                        <p>এটি প্রতিটি ক্লাস্টারের জন্য, তার সবচেয়ে খারাপ (সর্বোচ্চ) সাদৃশ্যযুক্ত ক্লাস্টারের সাথে গড় সাদৃশ্য অনুপাত পরিমাপ করে।</p>
+                        <h4 class="mt-4 font-semibold">সূত্র (সাধারণীকরণ):</h4>
+                        <p>$$DBI = \\frac{1}{k} \\sum_{i=1}^{k} \\max_{j \\neq i} \\left( \\frac{S_i + S_j}{M_{ij}} \\right)$$</p>
+                        <p>যেখানে:</p>
+                        <ul>
+                            <li>$k$: ক্লাস্টারের সংখ্যা।</li>
+                            <li>$S_i$: $i$-তম ক্লাস্টারের ডেটা পয়েন্টগুলির মধ্যে গড় দূরত্ব (ইন্ট্রা-ক্লাস্টার ছড়ানো বা ডায়ামিটার)।</li>
+                            <li>$M_{ij}$: $i$-তম এবং $j$-তম ক্লাস্টারের সেন্ট্রয়েডগুলির মধ্যে দূরত্ব।</li>
+                        </ul>
+                        <h4 class="mt-4 font-semibold">কখন ব্যবহার করবেন:</h4>
+                        <ul>
+                            <li>K-Means বা হায়ারার্কিক্যাল ক্লাস্টারিংয়ের মতো অ্যালগরিদমগুলির জন্য ক্লাস্টারের সংখ্যা (K) নির্বাচন করতে।</li>
+                            <li>বিভিন্ন ক্লাস্টারিং মডেল বা প্যারামিটার সেটআপের কার্যকারিতা তুলনা করতে।</li>
+                        </ul>
+                    `
+                },
+                {
+                    title: "ক্যালিনস্কি-হারাবাজ সূচক (Calinski-Harabasz Index - CHI)",
+                    content: `
+                        <p>ক্যালিনস্কি-হারাবাজ সূচক (CHI), যা ভ্যারিয়েন্স রেশিও ক্রাইটেরিয়ন নামেও পরিচিত, ক্লাস্টারগুলির মধ্যেকার বৈচিত্র্য (between-cluster variance) এবং ক্লাস্টারের অভ্যন্তরীণ বৈচিত্র্যের (within-cluster variance) অনুপাত পরিমাপ করে। একটি <b>উচ্চ CHI মান</b> ভালো ক্লাস্টারিং নির্দেশ করে, যেখানে ক্লাস্টারগুলি সুদূর এবং সুসংহত।</p>
+                        <h4 class="mt-4 font-semibold">সূত্র:</h4>
+                        <p>$$CHI = \\frac{\\text{Trace}(B)}{\\text{Trace}(W)} \\times \\frac{N - k}{k - 1}$$</p>
+                        <p>যেখানে:</p>
+                        <ul>
+                            <li>$N$: মোট ডেটা পয়েন্টের সংখ্যা।</li>
+                            <li>$k$: ক্লাস্টারের সংখ্যা।</li>
+                            <li>$\text{Trace}(B)$: ক্লাস্টারগুলির মধ্যেকার ছড়ানো ম্যাট্রিক্সের ট্রেস (between-cluster dispersion matrix)। এটি ক্লাস্টার সেন্ট্রয়েডগুলি কতটা একে অপরের থেকে দূরে তা পরিমাপ করে।</li>
+                            <li>$\text{Trace}(W)$: ক্লাস্টারের অভ্যন্তরীণ ছড়ানো ম্যাট্রিক্সের ট্রেস (within-cluster dispersion matrix)। এটি প্রতিটি ক্লাস্টারের মধ্যে ডেটা পয়েন্টগুলি কতটা কাছাকাছি তা পরিমাপ করে।</li>
+                        </ul>
+                        <h4 class="mt-4 font-semibold">কখন ব্যবহার করবেন:</h4>
+                        <ul>
+                            <li>ক্লাস্টারের সংখ্যা (K) নির্বাচন করতে।</li>
+                            <li>বিভিন্ন ক্লাস্টারিং পদ্ধতির তুলনামূলক বিশ্লেষণে।</li>
+                        </ul>
+                    `
+                },
+                {
+                    title: "অন্যান্য বিবেচনা",
+                    content: `
+                        <p>মূল্যায়ন মেট্রিক্সের পাশাপাশি, ক্লাস্টারিং মডেলের কার্যকারিতা মূল্যায়নে নিম্নলিখিত বিষয়গুলি বিবেচনা করা উচিত:</p>
+                        <ul>
+                            <li><b>এলবো মেথড (Elbow Method):</b> K-Means এর জন্য, ইনার্শিয়া (inertia) বা Sum of Squared Errors (SSE) গ্রাফে যে বিন্দুতে দ্রুত কমে যাওয়া বন্ধ করে একটি 'কুনুই' (elbow) তৈরি করে, সেই K মানটিকে বিবেচনা করা হয়। এটি একটি ভিজ্যুয়াল পদ্ধতি।</li>
+                            <li><b>ডোমেন জ্ঞান (Domain Knowledge):</b> প্রায়শই, ডেটা সম্পর্কে আপনার গভীর জ্ঞান সবচেয়ে উপযুক্ত ক্লাস্টারের সংখ্যা এবং ব্যাখ্যা নির্ধারণে সহায়তা করতে পারে, শুধুমাত্র পরিসংখ্যানগত মেট্রিক্সের উপর নির্ভর না করে।</li>
+                            <li><b>ভিজ্যুয়ালাইজেশন (Visualization):</b> ডেটা পয়েন্ট এবং তাদের অ্যাসাইনমেন্টের ভিজ্যুয়ালাইজেশন (বিশেষত 2D/3D ডেটার জন্য) ক্লাস্টারিংয়ের গুণমান সম্পর্কে স্বজ্ঞাত অন্তর্দৃষ্টি দিতে পারে।</li>
+                        </ul>
+                    `
+                }
+            ]
+        }
+    };
+
+    // --- Core Application Logic ---
+
+    const mainNav = document.getElementById('main-nav');
+    // const contentArea = document.querySelector('main'); // Main content area - already defined, no need to redefine
+
+    function buildAccordion(sections, currentSectionId) {
+        return sections.map((section, index) => `
+            <div class="border border-slate-200 rounded-lg mb-3 bg-white shadow-sm">
+                <button class="accordion-button w-full text-left p-4 font-semibold text-lg text-slate-800 flex justify-between items-center hover:bg-slate-50" data-accordion-id="accordion-${currentSectionId}-${index}">
+                    <span>${section.title}</span>
+                    <span class="transform transition-transform duration-300 text-emerald-600">▼</span>
+                </button>
+                <div id="accordion-${currentSectionId}-${index}" class="accordion-content">
+                    <div class="p-4 pt-0 text-slate-700 leading-relaxed">${section.content}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderSection(id) {
+        const section = document.getElementById(id);
+        const data = contentData[id];
+        if (!section || !data) return;
+
+        // Determine if it's a demo section or just a theory section
+        const isDemoSection = (id !== 'evaluation_metrics'); // Simplified check: if not evaluation_metrics, it has a demo
+
+        section.innerHTML = `
+            <h2 class="text-4xl font-bold mb-4 text-slate-800">${data.title}</h2>
+            ${isDemoSection ? `
+            <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200 mb-8">
+                <h3 class="text-2xl font-bold mb-2 text-slate-700">${data.demo.title}</h3>
+                <p class="text-slate-600 mb-4">${data.demo.description}</p>
+                <div id="${id}-demo-container" class="mt-4"></div>
+            </div>
+            ` : `
+            <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200 mb-8">
+                <h3 class="text-2xl font-bold mb-2 text-slate-700">${data.demo.title}</h3>
+                <p class="text-slate-600 mb-4">${data.demo.description}</p>
+            </div>
+            `}
+            <div>
+                <h3 class="text-2xl font-bold mb-4 text-slate-700">থিওরি ও বিস্তারিত</h3>
+                ${buildAccordion(data.theorySections, id)} <!-- Pass ID to buildAccordion -->
+            </div>
+        `;
+        
+        section.querySelectorAll('.accordion-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const content = document.getElementById(button.dataset.accordionId);
+                const icon = button.querySelector('span:last-child');
+                const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+                if (isOpen) {
+                    content.style.maxHeight = '0px';
+                    icon.style.transform = 'rotate(0deg)';
+                } else {
+                    content.style.maxHeight = content.scrollHeight + 30 + "px";
+                    icon.style.transform = 'rotate(180deg)';
+                }
+            });
+        });
+        
+        if (window.renderMathInElement) {
+             renderMathInElement(section, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });
+        }
+
+        // Initialize the specific demo for the section if it's a demo section
+        if (id === 'pca') initPCADemo();
+        if (id === 'kmeans') initKMeansDemo();
+        if (id === 'hierarchical') initHierarchicalDemo();
+        if (id === 'dbscan') initDBSCANLearing();
+        if (id === 'silhouette_clustering') initSilhouetteDemo();
+    }
+    
+    mainNav.addEventListener('click', (e) => {
+        if (e.target.tagName === 'A') {
+            const targetId = e.target.dataset.target;
+            mainNav.querySelectorAll('a').forEach(link => link.classList.remove('active'));
+            e.target.classList.add('active');
+            
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            const targetSection = document.getElementById(targetId);
+            if(targetSection) {
+                 targetSection.classList.add('active');
+                 // Only render if it's empty to avoid re-rendering on every click
+                 // For evaluation_metrics or silhouette_clustering, it always re-renders to ensure content is fresh for potential future interactive elements
+                 if(!targetSection.innerHTML || targetId === 'evaluation_metrics' || targetId === 'silhouette_clustering') { 
+                     renderSection(targetId);
+                 }
+            }
+        }
+    });
+
+    // --- PCA DEMO ---
+    function initPCADemo() {
+        const container = document.getElementById('pca-demo-container');
+        container.innerHTML = `
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                <div class="lg:col-span-2 chart-container">
+                    <canvas id="pcaChart"></canvas>
+                </div>
+                <div class="space-y-4 bg-slate-100 p-4 rounded-lg">
+                    <label for="pcaSlider" class="block font-medium">কম্পোনেন্টের সংখ্যা: <span id="pcaSliderValue" class="font-bold text-emerald-700">2</span></label>
+                    <input type="range" id="pcaSlider" min="1" max="2" value="2" step="1" class="w-full">
+                    <div id="pcaInfo" class="text-sm text-slate-600"></div>
+                </div>
+            </div>`;
+        
+        const slider = document.getElementById('pcaSlider');
+        const sliderValue = document.getElementById('pcaSliderValue');
+        const pcaInfo = document.getElementById('pcaInfo');
+        const ctx = document.getElementById('pcaChart').getContext('2d');
+        let chart;
+        let data, mean, eigenvectors, eigenvalues;
+
+        function generatePCADataset() {
+            data = [];
+            for (let i = 0; i < 100; i++) {
+                const r1 = Math.random() * 5 - 2.5;
+                const r2 = Math.random() * 1 - 0.5;
+                const angle = Math.PI / 4;
+                const x = r1 * Math.cos(angle) - r2 * Math.sin(angle) + 5;
+                const y = r1 * Math.sin(angle) + r2 * Math.cos(angle) + 5;
+                data.push({x, y});
+            }
+        }
+
+        function runPCA() {
+            const n = data.length;
+            const meanX = data.reduce((s, p) => s + p.x, 0) / n;
+            const meanY = data.reduce((s, p) => s + p.y, 0) / n;
+            mean = { x: meanX, y: meanY };
+            
+            const centered = data.map(p => ({ x: p.x - meanX, y: p.y - meanY }));
+            
+            let covXX = 0, covYY = 0, covXY = 0;
+            centered.forEach(p => {
+                covXX += p.x * p.x;
+                covYY += p.y * p.y;
+                covXY += p.x * p.y;
+            });
+            covXX /= (n-1); covYY /= (n-1); covXY /= (n-1);
+
+            const trace = covXX + covYY;
+            const det = covXX * covYY - covXY * covXY;
+            
+            // Calculate eigenvalues using quadratic formula
+            eigenvalues = [
+                (trace + Math.sqrt(trace * trace - 4 * det)) / 2,
+                (trace - Math.sqrt(trace * trace - 4 * det)) / 2
+            ];
+            
+            eigenvectors = [];
+            // Simple case for diagonal covariance matrix
+            if (Math.abs(covXY) < 1e-9) { // Check if covXY is close to zero
+                eigenvectors.push({x: 1, y: 0});
+                eigenvectors.push({x: 0, y: 1});
+            } else {
+                // Calculate eigenvectors for 2x2 symmetric matrix
+                const v1_x = eigenvalues[0] - covYY;
+                const v1_y = covXY;
+                const mag1 = Math.sqrt(v1_x * v1_x + v1_y * v1_y);
+                eigenvectors.push({x: v1_x / mag1, y: v1_y / mag1});
+
+                const v2_x = eigenvalues[1] - covYY;
+                const v2_y = covXY;
+                const mag2 = Math.sqrt(v2_x * v2_x + v2_y * v2_y);
+                eigenvectors.push({x: v2_x / mag2, y: v2_y / mag2});
+            }
+        }
+
+        function updatePCAChart() {
+            const numComponents = parseInt(slider.value);
+            sliderValue.textContent = numComponents;
+            
+            let projectedData;
+            if (numComponents === 1) {
+                const pc1 = eigenvectors[0];
+                projectedData = data.map(p => {
+                    const centered = {x: p.x - mean.x, y: p.y - mean.y};
+                    const dot = centered.x * pc1.x + centered.y * pc1.y;
+                    return {x: mean.x + dot * pc1.x, y: mean.y + dot * pc1.y};
+                });
+                pcaInfo.textContent = "ডেটা প্রথম প্রিন্সিপাল কম্পোনেন্টে প্রজেক্ট করা হয়েছে।";
+            } else {
+                projectedData = data;
+                pcaInfo.textContent = "মূল 2D ডেটা দেখানো হচ্ছে।";
+            }
+            
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets: [{ label: 'ডেটা পয়েন্ট', data: projectedData, backgroundColor: '#059669' }] },
+                options: { scales: { x: { min: 0, max: 10 }, y: { min: 0, max: 10 } }, responsive: true, maintainAspectRatio: false }
+            });
+        }
+        
+        slider.addEventListener('input', updatePCAChart);
+        generatePCADataset();
+        runPCA();
+        updatePCAChart();
+    }
+
+    // --- K-Means Demo ---
+    function initKMeansDemo() {
+        const container = document.getElementById('kmeans-demo-container');
+        container.innerHTML = `
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                <div class="lg:col-span-2 chart-container">
+                    <canvas id="kmeansChart"></canvas>
+                </div>
+                <div class="space-y-4 bg-slate-100 p-4 rounded-lg">
+                    <label for="kSlider" class="block font-medium">ক্লাস্টারের সংখ্যা (K): <span id="kSliderValue" class="font-bold text-emerald-700">3</span></label>
+                    <input type="range" id="kSlider" min="2" max="6" value="3" step="1" class="w-full">
+                    <button id="kmeansNextStep" class="w-full bg-emerald-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-emerald-700 transition">পরবর্তী ধাপ</button>
+                    <button id="kmeansReset" class="w-full bg-slate-300 py-2 px-4 rounded-md hover:bg-slate-400 transition">রিসেট</button>
+                    <div id="kmeansInfo" class="text-sm text-slate-600"></div>
+                </div>
+            </div>`;
+            
+        let chart, data, centroids, assignments;
+        const ctx = document.getElementById('kmeansChart').getContext('2d');
+        const kSlider = document.getElementById('kSlider');
+        const kValue = document.getElementById('kSliderValue');
+        const nextBtn = document.getElementById('kmeansNextStep');
+        const resetBtn = document.getElementById('kmeansReset');
+        const info = document.getElementById('kmeansInfo');
+        const colors = ['#f43f5e', '#3b82f6', '#16a34a', '#f97316', '#8b5cf6', '#d946ef'];
+
+        function resetKMeans() {
+            const k = parseInt(kSlider.value);
+            kValue.textContent = k;
+            data = Array.from({length: 150}, () => ({x: Math.random()*10, y: Math.random()*10}));
+            centroids = data.slice(0, k).map(p => ({...p}));
+            assignments = new Array(data.length).fill(0);
+            info.textContent = "ধাপ ১: ডেটা পয়েন্ট অ্যাসাইন করুন।";
+            updateKMeansChart();
+        }
+
+        function assignStep() {
+            let changed = false;
+            data.forEach((p, i) => {
+                let minDist = Infinity, bestCentroid = -1;
+                centroids.forEach((c, j) => {
+                    const dist = Math.sqrt((p.x - c.x)**2 + (p.y - c.y)**2);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        bestCentroid = j;
+                    }
+                });
+                if (assignments[i] !== bestCentroid) {
+                    assignments[i] = bestCentroid;
+                    changed = true;
+                }
+            });
+            info.textContent = "ধাপ ২: সেন্ট্রয়েড আপডেট করুন।";
+            updateKMeansChart();
+            return changed;
+        }
+
+        function updateStep() {
+            const k = centroids.length;
+            const sums = Array.from({length: k}, () => ({x: 0, y: 0, count: 0}));
+            data.forEach((p, i) => {
+                const clusterIndex = assignments[i];
+                sums[clusterIndex].x += p.x;
+                sums[clusterIndex].y += p.y;
+                sums[clusterIndex].count++;
+            });
+            centroids = sums.map(s => s.count > 0 ? {x: s.x/s.count, y: s.y/s.count} : {x: Math.random()*10, y:Math.random()*10}); // If a cluster becomes empty, re-initialize its centroid randomly
+            info.textContent = "ধাপ ১: ডেটা পয়েন্ট অ্যাসাইন করুন।";
+            updateKMeansChart();
+        }
+        
+        let isAssignStep = true;
+        nextBtn.addEventListener('click', () => {
+            if (isAssignStep) {
+                if (!assignStep()) info.textContent = "কনভারজড! আর কোনো পরিবর্তন নেই।";
+            } else {
+                updateStep();
+            }
+            isAssignStep = !isAssignStep;
+        });
+        
+        function updateKMeansChart() {
+            const datasets = [
+                {
+                    label: 'ডেটা পয়েন্ট',
+                    data: data,
+                    pointBackgroundColor: assignments.map(a => colors[a] + '80'), // semi-transparent
+                    type: 'scatter',
+                    pointRadius: 6
+                },
+                {
+                    label: 'সেন্ট্রয়েড',
+                    data: centroids,
+                    pointStyle: 'star',
+                    backgroundColor: colors.slice(0, centroids.length),
+                    pointRadius: 15,
+                    borderColor: 'black',
+                    borderWidth: 2
+                }
+            ];
+            if(chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets },
+                options: { scales: { x: { min: 0, max: 10 }, y: { min: 0, max: 10 } }, responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        kSlider.addEventListener('input', resetKMeans);
+        resetBtn.addEventListener('click', resetKMeans);
+        resetKMeans();
+    }
+    
+    // --- Hierarchical Clustering Demo ---
+    function initHierarchicalDemo() {
+         const container = document.getElementById('hierarchical-demo-container');
+         container.innerHTML = `
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                <div class="chart-container">
+                    <canvas id="hChart"></canvas>
+                </div>
+                <div class="space-y-4">
+                     <div class="bg-slate-100 p-4 rounded-lg">
+                        <label for="linkageSelect" class="block font-medium mb-2">লিংকেজ পদ্ধতি:</label>
+                        <select id="linkageSelect" class="w-full p-2 border rounded-md">
+                            <option value="single">Single Linkage</option>
+                            <option value="complete">Complete Linkage</option>
+                            <option value="average">Average Linkage</option>
+                        </select>
+                        <label for="hSlider" class="block font-medium mt-4">দূরত্ব থ্রেশহোল্ড: <span id="hSliderValue" class="font-bold text-emerald-700">2.5</span></label>
+                        <input type="range" id="hSlider" min="0" max="10" value="2.5" step="0.1" class="w-full">
+                     </div>
+                     <div class="dendrogram-container" id="dendrogram"></div>
+                </div>
+            </div>`;
+        
+        const slider = document.getElementById('hSlider');
+        const sliderValue = document.getElementById('hSliderValue');
+        const linkageSelect = document.getElementById('linkageSelect');
+        const dendroContainer = document.getElementById('dendrogram');
+        const ctx = document.getElementById('hChart').getContext('2d');
+        let chart, data, clusters, linkageTreeData; // Changed to linkageTreeData
+        const colors = ['#f43f5e', '#3b82f6', '#16a34a', '#f97316', '#8b5cf6', '#d946ef', '#14b8a6', '#f59e0b', '#dc2626', '#2563eb', '#047857', '#ea580c'];
+
+        function generateHData() {
+            data = [];
+            // Four distinct blobs with some overlap/closeness
+            [[2,2], [8,8], [2,8], [8,2]].forEach(([cx,cy]) => {
+                for(let i = 0; i < 20; i++) {
+                    data.push({x: cx + (Math.random()*2-1), y: cy + (Math.random()*2-1), originalIndex: data.length});
+                }
+            });
+            // Add some noise or challenging points
+            data.push({x: 5, y: 5, originalIndex: data.length});
+            data.push({x: 5.5, y: 5.5, originalIndex: data.length});
+            data.push({x: 1, y: 9, originalIndex: data.length});
+        }
+        
+        // Euclidean distance between two points
+        function euclideanDistance(p1, p2) {
+            return Math.sqrt((p1.x - p2.x)**2 + (p1.y - p2.y)**2);
+        }
+
+        // Calculate distance between two clusters based on linkage criterion
+        function calculateClusterDistance(c1, c2, linkageMethod) {
+            let dist = Infinity;
+            if (linkageMethod === 'single') {
+                c1.points.forEach(p1 => {
+                    c2.points.forEach(p2 => {
+                        dist = Math.min(dist, euclideanDistance(p1, p2));
+                    });
+                });
+            } else if (linkageMethod === 'complete') {
+                dist = 0; // Reset for max
+                c1.points.forEach(p1 => {
+                    c2.points.forEach(p2 => {
+                        dist = Math.max(dist, euclideanDistance(p1, p2));
+                    });
+                });
+            } else if (linkageMethod === 'average') {
+                let sumDist = 0;
+                let count = 0;
+                c1.points.forEach(p1 => {
+                    c2.points.forEach(p2 => {
+                        sumDist += euclideanDistance(p1, p2);
+                        count++;
+                    });
+                });
+                dist = sumDist / count;
+            }
+            return dist;
+        }
+
+        function buildLinkageTree() {
+            const currentClusters = data.map((p, i) => ({ 
+                points: [p], 
+                id: i, // Unique ID for each cluster node
+                height: 0, // Distance at which this node was formed (for dendrogram)
+                children: null, // For storing merged children nodes
+                leaves: [p.originalIndex] // Original data point indices
+            }));
+            
+            linkageTreeData = []; // Stores the merge history
+            let nextClusterId = data.length;
+
+            while (currentClusters.length > 1) {
+                let minDist = Infinity;
+                let mergeIndex1 = -1, mergeIndex2 = -1;
+
+                // Find the closest pair of clusters
+                for (let i = 0; i < currentClusters.length; i++) {
+                    for (let j = i + 1; j < currentClusters.length; j++) {
+                        const dist = calculateClusterDistance(currentClusters[i], currentClusters[j], linkageSelect.value);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            mergeIndex1 = i;
+                            mergeIndex2 = j;
+                        }
+                    }
+                }
+                
+                if (mergeIndex1 === -1) break; // No more merges possible (shouldn't happen with valid data)
+
+                const c1 = currentClusters[mergeIndex1];
+                const c2 = currentClusters[mergeIndex2];
+
+                // Create a new merged cluster node
+                const newCluster = {
+                    points: [...c1.points, ...c2.points],
+                    id: nextClusterId++,
+                    height: minDist,
+                    children: [c1, c2],
+                    leaves: [...c1.leaves, ...c2.leaves]
+                };
+
+                // Record the merge
+                linkageTreeData.push({
+                    left: c1.id,
+                    right: c2.id,
+                    dist: minDist,
+                    newId: newCluster.id,
+                    size: newCluster.points.length
+                });
+
+                // Remove merged clusters and add the new one
+                currentClusters.splice(mergeIndex2, 1); // Remove second first to avoid index issues
+                currentClusters.splice(mergeIndex1, 1);
+                currentClusters.push(newCluster);
+            }
+            // The last remaining cluster is the root of the tree
+            clusters = currentClusters[0]; 
+        }
+        
+        function updateHClusters() {
+            const threshold = parseFloat(slider.value);
+            sliderValue.textContent = threshold.toFixed(1);
+            
+            const assignments = new Array(data.length).fill(-1); // -1 for unassigned initially
+
+            const finalClustersAtThreshold = [];
+            let processedNodes = new Set();
+
+            function getClustersAtThreshold(node) {
+                if (!node || processedNodes.has(node.id)) return;
+
+                if (node.height <= threshold || !node.children) {
+                    finalClustersAtThreshold.push(node);
+                    processedNodes.add(node.id);
+                    return;
+                }
+
+                // If parent's height is above threshold, explore children
+                getClustersAtThreshold(node.children[0]);
+                getClustersAtThreshold(node.children[1]);
+            }
+            
+            if (clusters) { // Ensure clusters root exists
+                getClustersAtThreshold(clusters);
+
+                finalClustersAtThreshold.forEach((clusterNode, id) => {
+                    clusterNode.leaves.forEach(originalIdx => {
+                        assignments[originalIdx] = id;
+                    });
+                });
+            }
+
+
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'ডেটা',
+                        data: data,
+                        pointBackgroundColor: assignments.map(a => a === -1 ? '#808080' : colors[a % colors.length]), // Grey for unassigned/noise
+                        pointRadius: 6
+                    }]
+                },
+                options: { scales: { x: { min: 0, max: 10 }, y: { min: 0, max: 10 } }, responsive: true, maintainAspectRatio: false }
+            });
+            drawDendrogram(threshold);
+        }
+        
+        // This dendrogram drawing is highly simplified and illustrative
+        function drawDendrogram(threshold) {
+            dendroContainer.innerHTML = '';
+            if (!linkageTreeData || linkageTreeData.length === 0) return;
+
+            const width = dendroContainer.clientWidth;
+            const height = dendroContainer.clientHeight;
+            const margin = { top: 20, right: 20, bottom: 20, left: 20 };
+            const chartWidth = width - margin.left - margin.right;
+            const chartHeight = height - margin.top - margin.bottom;
+
+            const maxDist = Math.max(...linkageTreeData.map(node => node.dist));
+            const y_scale = d => chartHeight - (d / maxDist) * chartHeight;
+
+            // Map original leaves to positions
+            const leafPositions = {};
+            const leafWidth = chartWidth / data.length;
+            data.forEach((p, i) => {
+                leafPositions[p.originalIndex] = margin.left + (i * leafWidth) + (leafWidth / 2);
+            });
+
+            const nodeXPositions = new Map();
+            data.forEach(p => nodeXPositions.set(p.originalIndex, leafPositions[p.originalIndex]));
+
+            // Sort linkageTreeData by distance (height) for drawing order
+            const sortedLinkage = [...linkageTreeData].sort((a, b) => a.dist - b.dist);
+
+            sortedLinkage.forEach(node => {
+                const x1 = nodeXPositions.get(node.left);
+                const x2 = nodeXPositions.get(node.right);
+                const y = y_scale(node.dist);
+
+                // Vertical lines from children to current merge height
+                // Need to find the y-position of the children. For leaves it's bottom. For merged nodes, it's their height.
+                let y_child1_val = (node.left < data.length) ? 0 : linkageTreeData.find(d => d.newId === node.left)?.dist || 0;
+                let y_child2_val = (node.right < data.length) ? 0 : linkageTreeData.find(d => d.newId === node.right)?.dist || 0;
+                
+                const y_child1 = y_scale(y_child1_val);
+                const y_child2 = y_scale(y_child2_val);
+
+                const vLine1 = document.createElement('div');
+                vLine1.className = 'dendrogram-node dendrogram-vertical-line';
+                vLine1.style.left = `${x1}px`;
+                vLine1.style.height = `${y_child1 - y}px`;
+                vLine1.style.bottom = `${height - margin.bottom - y_child1}px`; // Adjust bottom
+                dendroContainer.appendChild(vLine1);
+
+                const vLine2 = document.createElement('div');
+                vLine2.className = 'dendrogram-node dendrogram-vertical-line';
+                vLine2.style.left = `${x2}px`;
+                vLine2.style.height = `${y_child2 - y}px`;
+                vLine2.style.bottom = `${height - margin.bottom - y_child2}px`; // Adjust bottom
+                dendroContainer.appendChild(vLine2);
+
+                // Horizontal line connecting vertical lines
+                const hLine = document.createElement('div');
+                hLine.className = 'dendrogram-node dendrogram-horizontal-line';
+                hLine.style.left = `${x1}px`;
+                hLine.style.width = `${x2 - x1}px`;
+                hLine.style.bottom = `${height - margin.bottom - y}px`;
+                dendroContainer.appendChild(hLine);
+
+                // Store new node's x-position for future merges
+                nodeXPositions.set(node.newId, (x1 + x2) / 2);
+            });
+
+            // Draw threshold line
+            const thresholdLineY = height - margin.bottom - (threshold / maxDist) * chartHeight;
+            const thresholdDiv = document.createElement('div');
+            thresholdDiv.className = 'dendrogram-node';
+            thresholdDiv.style.position = 'absolute';
+            thresholdDiv.style.left = `${margin.left}px`;
+            thresholdDiv.style.width = `${chartWidth}px`;
+            thresholdDiv.style.height = '2px';
+            thresholdDiv.style.backgroundColor = 'red';
+            thresholdDiv.style.opacity = '0.8';
+            thresholdDiv.style.bottom = `${thresholdLineY}px`;
+            dendroContainer.appendChild(thresholdDiv);
+        }
+
+        linkageSelect.addEventListener('change', () => {
+            buildLinkageTree(); // Rebuild tree with new linkage
+            updateHClusters();
+        });
+        slider.addEventListener('input', updateHClusters);
+        generateHData();
+        buildLinkageTree();
+        updateHClusters();
+    }
+    
+    // --- DBSCAN Demo ---
+    function initDBSCANLearing() {
+        const container = document.getElementById('dbscan-demo-container');
+        container.innerHTML = `
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                <div class="lg:col-span-2 chart-container">
+                    <canvas id="dbscanChart"></canvas>
+                </div>
+                <div class="space-y-4 bg-slate-100 p-4 rounded-lg">
+                    <label for="epsSlider" class="block font-medium">Epsilon (eps): <span id="epsSliderValue" class="font-bold text-emerald-700">1.0</span></label>
+                    <input type="range" id="epsSlider" min="0.1" max="2.0" value="1.0" step="0.1" class="w-full">
+                    <label for="minSamplesSlider" class="block font-medium">Min Samples: <span id="minSamplesSliderValue" class="font-bold text-emerald-700">5</span></label>
+                    <input type="range" id="minSamplesSlider" min="2" max="15" value="5" step="1" class="w-full">
+                    <button id="dbscanResetData" class="w-full bg-slate-300 py-2 px-4 rounded-md hover:bg-slate-400 transition">নতুন ডেটা জেনারেট করুন</button>
+                    <div id="dbscanInfo" class="text-sm text-slate-600 mt-4"></div>
+                </div>
+            </div>`;
+        
+        const epsSlider = document.getElementById('epsSlider');
+        const minSamplesSlider = document.getElementById('minSamplesSlider');
+        const epsValue = document.getElementById('epsSliderValue');
+        const minSamplesValue = document.getElementById('minSamplesSliderValue');
+        const resetDataBtn = document.getElementById('dbscanResetData');
+        const dbscanInfo = document.getElementById('dbscanInfo');
+        const ctx = document.getElementById('dbscanChart').getContext('2d');
+        let chart;
+        let data;
+        const colors = ['#f43f5e', '#3b82f6', '#16a34a', '#f97316', '#8b5cf6', '#d946ef', '#14b8a6', '#f59e0b', '#dc2626', '#2563eb', '#047857', '#ea580c'];
+        const NOISE = -1;
+        const UNCLASSIFIED = 0;
+
+        function generateDBSCANData() {
+            data = [];
+            // Generate two concentric circles
+            for (let i = 0; i < 70; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 2 + (Math.random() * 0.5 - 0.25);
+                data.push({ x: 5 + radius * Math.cos(angle), y: 5 + radius * Math.sin(angle), cluster: UNCLASSIFIED });
+            }
+            for (let i = 0; i < 70; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 4 + (Math.random() * 0.5 - 0.25);
+                data.push({ x: 5 + radius * Math.cos(angle), y: 5 + radius * Math.sin(angle), cluster: UNCLASSIFIED });
+            }
+            // Add some random noise points
+            for (let i = 0; i < 20; i++) {
+                data.push({ x: Math.random() * 10, y: Math.random() * 10, cluster: UNCLASSIFIED });
+            }
+        }
+
+        function getNeighbors(pointIndex, eps) {
+            const neighbors = [];
+            const p1 = data[pointIndex];
+            for (let i = 0; i < data.length; i++) {
+                if (i === pointIndex) continue;
+                const p2 = data[i];
+                const dist = Math.sqrt((p1.x - p2.x)**2 + (p1.y - p2.y)**2);
+                if (dist <= eps) {
+                    neighbors.push(i);
+                }
+            }
+            return neighbors;
+        }
+
+        function expandCluster(pointIndex, neighbors, clusterId, eps, minSamples) {
+            data[pointIndex].cluster = clusterId;
+            let i = 0;
+            while (i < neighbors.length) {
+                const currentPointIndex = neighbors[i];
+                if (data[currentPointIndex].cluster === NOISE) {
+                    data[currentPointIndex].cluster = clusterId;
+                }
+                if (data[currentPointIndex].cluster === UNCLASSIFIED) {
+                    data[currentPointIndex].cluster = clusterId;
+                    const currentNeighbors = getNeighbors(currentPointIndex, eps);
+                    if (currentNeighbors.length >= minSamples) {
+                        neighbors = neighbors.concat(currentNeighbors.filter(n => !neighbors.includes(n))); // Add new neighbors
+                    }
+                }
+                i++;
+            }
+        }
+
+        function runDBSCAN() {
+            const eps = parseFloat(epsSlider.value);
+            const minSamples = parseInt(minSamplesSlider.value);
+            
+            epsValue.textContent = eps.toFixed(1);
+            minSamplesValue.textContent = minSamples;
+
+            // Reset cluster assignments
+            data.forEach(p => p.cluster = UNCLASSIFIED);
+
+            let clusterId = 0;
+            for (let i = 0; i < data.length; i++) {
+                if (data[i].cluster !== UNCLASSIFIED) continue;
+
+                const neighbors = getNeighbors(i, eps);
+                if (neighbors.length < minSamples) {
+                    data[i].cluster = NOISE; // Mark as noise
+                } else {
+                    clusterId++;
+                    expandCluster(i, neighbors, clusterId, eps, minSamples);
+                }
+            }
+            updateDBSCANChart();
+            let noiseCount = data.filter(p => p.cluster === NOISE).length;
+            let actualClusters = new Set(data.filter(p => p.cluster !== NOISE).map(p => p.cluster));
+            dbscanInfo.innerHTML = `মোট ক্লাস্টার: <span class="font-bold text-emerald-700">${actualClusters.size}</span><br> নয়েজ পয়েন্ট: <span class="font-bold text-emerald-700">${noiseCount}</span>`;
+        }
+        
+        function updateDBSCANChart() {
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'ডেটা পয়েন্ট',
+                        data: data,
+                        pointBackgroundColor: data.map(p => p.cluster === NOISE ? '#808080' : colors[(p.cluster - 1) % colors.length]), // Noise is grey
+                        pointRadius: 6,
+                        borderColor: 'black',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: { x: { min: 0, max: 10 }, y: { min: 0, max: 10 } },
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const clusterLabel = context.raw.cluster === NOISE ? 'নয়েজ' : `ক্লাস্টার ${context.raw.cluster}`;
+                                    return `(${context.raw.x.toFixed(2)}, ${context.raw.y.toFixed(2)}) - ${clusterLabel}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        epsSlider.addEventListener('input', runDBSCAN);
+        minSamplesSlider.addEventListener('input', runDBSCAN);
+        resetDataBtn.addEventListener('click', () => {
+            generateDBSCANData();
+            runDBSCAN();
+        });
+
+        generateDBSCANData();
+        runDBSCAN();
+    }
+
+    // --- Silhouette Clustering Demo ---
+    function initSilhouetteDemo() {
+        const container = document.getElementById('silhouette_clustering-demo-container');
+        container.innerHTML = `
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                <div class="lg:col-span-2 chart-container">
+                    <canvas id="silhouetteChart"></canvas>
+                </div>
+                <div class="space-y-4 bg-slate-100 p-4 rounded-lg">
+                    <label for="silhouetteKSlider" class="block font-medium">ক্লাস্টারের সংখ্যা (K): <span id="silhouetteKSliderValue" class="font-bold text-emerald-700">3</span></label>
+                    <input type="range" id="silhouetteKSlider" min="2" max="6" value="3" step="1" class="w-full">
+                    <button id="silhouetteResetData" class="w-full bg-slate-300 py-2 px-4 rounded-md hover:bg-slate-400 transition">নতুন ডেটা জেনারেট করুন</button>
+                    <div id="silhouetteInfo" class="text-sm text-slate-600 mt-4"></div>
+                    <div id="averageSilhouetteScore" class="text-lg font-semibold text-emerald-800 mt-4">গড় সিলুয়েট স্কোর: -</div>
+                </div>
+            </div>`;
+        
+        const kSlider = document.getElementById('silhouetteKSlider');
+        const kValue = document.getElementById('silhouetteKSliderValue');
+        const resetDataBtn = document.getElementById('silhouetteResetData');
+        const silhouetteInfo = document.getElementById('silhouetteInfo');
+        const avgSilhouetteScoreDisplay = document.getElementById('averageSilhouetteScore');
+        const ctx = document.getElementById('silhouetteChart').getContext('2d');
+        let chart;
+        let data;
+        const colors = ['#f43f5e', '#3b82f6', '#16a34a', '#f97316', '#8b5cf6', '#d946ef'];
+
+        function generateSilhouetteData() {
+            data = [];
+            // Generate some distinct blobs
+            [[2,2], [8,8], [2,8]].forEach(([cx,cy]) => {
+                for(let i = 0; i < 40; i++) {
+                    data.push({x: cx + (Math.random()*1.5-0.75), y: cy + (Math.random()*1.5-0.75)});
+                }
+            });
+             // Add some noise or challenging points
+            for (let i = 0; i < 10; i++) {
+                data.push({ x: Math.random() * 10, y: Math.random() * 10 });
+            }
+        }
+
+        // K-Means implementation for silhouette demo (simplified)
+        function runKMeansForSilhouette(k, points) {
+            let centroids = points.slice(0, k).map(p => ({...p}));
+            let assignments = new Array(points.length).fill(0);
+            let maxIterations = 100;
+            let changed = true;
+
+            for (let iter = 0; iter < maxIterations && changed; iter++) {
+                changed = false;
+                // Assignment step
+                points.forEach((p, i) => {
+                    let minDist = Infinity, bestCentroid = -1;
+                    centroids.forEach((c, j) => {
+                        const dist = Math.sqrt((p.x - c.x)**2 + (p.y - c.y)**2);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            bestCentroid = j;
+                        }
+                    });
+                    if (assignments[i] !== bestCentroid) {
+                        assignments[i] = bestCentroid;
+                        changed = true;
+                    }
+                });
+
+                // Update step
+                const sums = Array.from({length: k}, () => ({x: 0, y: 0, count: 0}));
+                points.forEach((p, i) => {
+                    const clusterIndex = assignments[i];
+                    sums[clusterIndex].x += p.x;
+                    sums[clusterIndex].y += p.y;
+                    sums[clusterIndex].count++;
+                });
+                centroids = sums.map(s => s.count > 0 ? {x: s.x/s.count, y: s.y/s.count} : {x: Math.random()*10, y:Math.random()*10});
+            }
+            return { assignments, centroids };
+        }
+
+        // Calculate Euclidean distance between two points
+        function euclideanDistance(p1, p2) {
+            return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+        }
+
+        // Calculate Silhouette Score
+        function calculateSilhouetteScore(dataPoints, assignments) {
+            if (dataPoints.length <= 1) return 0; // Not enough points for a meaningful score
+            
+            const uniqueClusters = [...new Set(assignments)].sort((a,b) => a-b);
+            if (uniqueClusters.length <= 1 || uniqueClusters.length >= dataPoints.length) return 0; // Not enough clusters or too many
+
+            let silhouetteScores = [];
+
+            dataPoints.forEach((point_i, i) => {
+                const cluster_i = assignments[i];
+                
+                // Calculate a(i) - average distance to other points in the same cluster
+                let a_i = 0;
+                let count_a = 0;
+                dataPoints.forEach((point_j, j) => {
+                    if (i !== j && assignments[j] === cluster_i) {
+                        a_i += euclideanDistance(point_i, point_j);
+                        count_a++;
+                    }
+                });
+                a_i = count_a > 0 ? a_i / count_a : 0; // If cluster has only one point, a_i is 0
+
+                // Calculate b(i) - minimum average distance to points in any other cluster
+                let b_i = Infinity;
+                uniqueClusters.forEach(cluster_k => {
+                    if (cluster_k !== cluster_i) {
+                        let avg_dist_to_k = 0;
+                        let count_b = 0;
+                        dataPoints.forEach((point_l, l) => {
+                            if (assignments[l] === cluster_k) {
+                                avg_dist_to_k += euclideanDistance(point_i, point_l);
+                                count_b++;
+                            }
+                        });
+                        if (count_b > 0) {
+                            avg_dist_to_k /= count_b;
+                            b_i = Math.min(b_i, avg_dist_to_k);
+                        }
+                    }
+                });
+
+                // Calculate S(i)
+                let s_i;
+                if (b_i === Infinity) { // Point is in a cluster alone or cannot reach other clusters (e.g., if only one cluster)
+                    s_i = 0;
+                } else if (a_i === 0) { // Point is alone in its cluster
+                    s_i = 0; // Or (b_i - 0) / max(0, b_i) which is 1 if b_i > 0
+                } else {
+                    s_i = (b_i - a_i) / Math.max(a_i, b_i);
+                }
+                silhouetteScores.push(s_i);
+            });
+
+            // Calculate average silhouette score
+            const averageSilhouette = silhouetteScores.reduce((sum, score) => sum + score, 0) / silhouetteScores.length;
+            return isNaN(averageSilhouette) ? 0 : averageSilhouette;
+        }
+
+        function updateSilhouetteDemo() {
+            const k = parseInt(kSlider.value);
+            kValue.textContent = k;
+
+            const { assignments, centroids } = runKMeansForSilhouette(k, data);
+            const avgSilhouette = calculateSilhouetteScore(data, assignments);
+
+            avgSilhouetteScoreDisplay.textContent = `গড় সিলুয়েট স্কোর: ${avgSilhouette.toFixed(3)}`;
+            silhouetteInfo.textContent = `নির্বাচন করা K=${k} এর জন্য ক্লাস্টারিং ফলাফল।`;
+
+            const datasets = [
+                {
+                    label: 'ডেটা পয়েন্ট',
+                    data: data,
+                    pointBackgroundColor: assignments.map(a => colors[a % colors.length]),
+                    type: 'scatter',
+                    pointRadius: 6
+                },
+                {
+                    label: 'সেন্ট্রয়েড',
+                    data: centroids,
+                    pointStyle: 'star',
+                    backgroundColor: colors.slice(0, k),
+                    pointRadius: 15,
+                    borderColor: 'black',
+                    borderWidth: 2
+                }
+            ];
+            if(chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets },
+                options: { scales: { x: { min: 0, max: 10 }, y: { min: 0, max: 10 } }, responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        kSlider.addEventListener('input', updateSilhouetteDemo);
+        resetDataBtn.addEventListener('click', () => {
+            generateSilhouetteData();
+            updateSilhouetteDemo();
+        });
+
+        generateSilhouetteData();
+        updateSilhouetteDemo();
+    }
+    
+    // Initial Render - renders PCA demo by default
+    renderSection('pca');
+
+});
+</script>
+</body>
+</html>

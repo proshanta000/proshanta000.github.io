@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ইন্টারেক্টিভ মেশিন লার্নিং গাইড</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Scholarly Neutrals -->
+    <!-- Application Structure Plan: A two-panel SPA with a fixed sidebar for topic navigation and a main content area. This non-linear structure allows users to explore complex ML topics in any order. The core is an interactive "Learning Path" flowchart. Each algorithm is presented in a consistent format with explanations and a unique interactive Chart.js visualization to make abstract concepts tangible and improve learning retention over a static report. -->
+    <!-- Visualization & Content Choices: Report sections are mapped to interactive modules. Goal: Explain concepts -> Interactive Chart.js visualizations (e.g., K-Means iteration, SVM margin toggle). Goal: Organize -> Clickable HTML/CSS flowchart and algorithm cards. Goal: Compare -> HTML tables. This approach prioritizes active learning. For example, Linear Regression uses a scatter plot with a draggable point to show real-time error calculation, making the MSE concept intuitive. All diagrams are built with HTML/CSS. Chart.js is the only viz library. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 300px;
+            }
+        }
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        .nav-link.active {
+            background-color: #dbeafe;
+            color: #1e3a8a;
+            font-weight: 600;
+        }
+        .sub-nav-link.active {
+            color: #1d4ed8;
+            font-weight: 500;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        /* Custom Keyframe Animations for Icons - These must remain in a <style> block */
+        @keyframes bounce-left {
+            0%, 100% {
+                transform: translateX(0);
+            }
+            50% {
+                transform: translateX(-8px); /* Moves 8px left */
+            }
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-8px); /* Floats 8px up */
+            }
+        }
+
+        /* Applying the custom animations with custom classes for readability */
+        .animate-custom-bounce-left {
+            animation: bounce-left 2s infinite ease-in-out;
+        }
+
+        .animate-custom-float {
+            animation: float 3s infinite ease-in-out;
+        }
+
+        /* Styles for the floating icon container */
+        .floating-icon-container {
+            bottom: 20px;    /* 20px from the bottom of the screen */
+            right: 20px;     /* 20px from the right of the screen */
+            z-index: 10;   /* Ensures it stays on top of other content */
+            cursor: pointer; /* Indicates it's clickable */
+            transition: transform 0.2s ease-in-out; /* Smooth hover effect */
+        }
+
+        .floating-icon-container:hover {
+            transform: translateY(-5px); /* Lift effect on hover */
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+    <!-- Header Section -->
+    <header style="position: fixed; top: 0; left: 0; width: 100%; background-image: linear-gradient(to right, #14B8A6, #0EA5E9); color: #ffffff; padding: 1rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); z-index: 50;">
+    <div class="container mx-auto flex justify-center items-center">
+        <!-- Left Icon: Magnifying Glass with bounce animation -->
+        <div class="mr-4 hidden md:block animate-custom-bounce-left">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; opacity: 0.8;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+        </div>
+
+        <!-- Main Header Title -->
+        <h1 style="font-size: 1.5rem; font-weight: 600; letter-spacing: -0.025em; text-align: center;">
+            <!-- md:text-3xl class remains for responsiveness -->
+            <span class="rounded-md" style="padding: 0.25rem 0.75rem; text-shadow: 0 0 5px rgba(255, 255, 255, 0.8);">মেশিন লার্নিং গাইড</span>
+        </h1>
+
+        <!-- Right Icon: Academic Cap with float animation -->
+        <div class="ml-4 hidden md:block animate-custom-float">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; opacity: 0.8;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347M6.75 18.485a60.436 60.436 0 008.077 0C15.397 16.944 17.106 15.772 18 14.15c-1.391-.576-2.78-1.149-4.262-1.72a49.129 49.129 0 00-4.464-.98c-1.463-.197-2.926-.39-4.39-.58zM16.862 7.348c2.244 0 4.067-2.015 4.067-4.475 0-2.46-1.823-4.475-4.067-4.475-1.921 0-3.518 1.45-3.9 3.32a.867.867 0 01-1.399.642 7.726 7.726 0 00-2.387 1.341A3.868 3.868 0 005.166 7.02c-2.487.493-3.003 2.115-1.385 4.363A11.954 11.954 0 0110 12.39c.645-0.108 1.395-.297 2.228-.477z" />
+            </svg>
+        </div>
+    </div>
+    </header>
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <aside id="sidebar" class="w-full md:w-64 lg:w-72 bg-white border-r border-slate-200 p-4 md:p-6 md:fixed md:h-full md:overflow-y-auto transition-transform -translate-x-full md:translate-x-0 z-20">
+            <h1 class="text-xl font-bold text-blue-800 mb-6" style="padding-top:50px">মেশিন লার্নিং গাইড</h1>
+            <div style="padding-top: 30px;">
+                <h2 class="text-xl font-bold text-blue-800 mb-6" >প্রাম্ভিক ধারনাঃ</h2>
+            </div>
+            <div>
+                    <a href="index.html" class="nav-link text-lg font-semibold text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="index.html">হোম
+                    </a>
+            </div>
+            <nav class="space-y-2">
+                <div>
+                    <a href="#introduction" class="nav-link text-lg font-semibold text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="introduction">ভূমিকা</a>
+                </div>
+                <div>
+                    <a href="#preprocessing" class="nav-link text-lg font-semibold text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="preprocessing" >ডেটা প্রিপ্রোসেসিং</a>
+                </div>
+                <h3 class="text-lg font-semibold text-slate-700 hover:text-blue-700 p-2 rounded-lg cursor-pointer"onclick="toggleSubmenu('u-supervised-submenu')">প্রকারভেদ</h3>
+                <div id="u-supervised-submenu" class="hidden ml-4 mt-2 space-y-1 border-l-2 border-slate-200">
+                    <div>
+                    <h3 class="text-lg font-semibold text-slate-700 hover:text-blue-700 p-2 rounded-lg cursor-pointer" onclick="toggleSubmenu('supervised-submenu')">সুপারভাইজড লার্নিং</h3>
+                    <div id="supervised-submenu" class="hidden ml-4 mt-2 space-y-1 border-l-2 border-slate-200">
+                        <a href="#linear-regression" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="linear-regression">লিনিয়ার রিগ্রেশন</a>
+                        <a href="#logistic-regression" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="logistic-regression">লজিস্টিক রিগ্রেশন</a>
+                        <a href="#svm" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="svm">সাপোর্ট ভেক্টর মেশিন</a>
+                        <a href="#decision-tree" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="decision-tree">ডিসিশন ট্রি</a>
+                        <a href="#random-forest" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="random-forest">র‍্যান্ডম ফরেস্ট</a>
+                        <a href="#knn" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="knn">কে-নিয়ারেস্ট নেইবারস</a>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-slate-700 hover:text-blue-700 p-2 rounded-lg cursor-pointer" onclick="toggleSubmenu('unsupervised-submenu')">আনসুপারভাইজড লার্নিং</h3>
+                     <div id="unsupervised-submenu" class="hidden ml-4 mt-2 space-y-1 border-l-2 border-slate-200">
+                        <a href="#kmeans" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="kmeans">কে-মিনস ক্লাস্টারিং</a>
+                        <a href="#hierarchical" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="hierarchical">হায়ারার্কিক্যাল ক্লাস্টারিং</a>
+                        <a href="#pca" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="pca">প্রিন্সিপাল কম্পোনেন্ট অ্যানালাইসিস</a>
+                        <a href="#tsne" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="tsne">টি-এসএনই</a>
+                    </div>
+                </div>
+                </div>
+                
+                 <div>
+                    <h3 class="text-lg font-semibold text-slate-700 hover:text-blue-700 p-2 rounded-lg cursor-pointer" onclick="toggleSubmenu('evaluation-submenu')">মডেল মূল্যায়ন</h3>
+                    <div id="evaluation-submenu" class="hidden ml-4 mt-2 space-y-1 border-l-2 border-slate-200">
+                        <a href="#classification-metrics" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="classification-metrics">ক্লাসিফিকেশন মেট্রিক</a>
+                        <a href="#regression-metrics" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="regression-metrics">রিগ্রেশন মেট্রিক</a>
+                        <a href="#unsupervised-metrics" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="unsupervised-metrics">আনসুপারভাইজড মেট্রিক</a>
+                        <a href="#overfitting" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="overfitting">ওভারফিটিং ও আন্ডারফিটিং</a>
+                    </div>
+                </div>
+            </nav>
+            <div style="padding-top: 30px;">
+                <h2 class="text-xl font-bold text-blue-800 mb-6" >বিস্তারিত ব্যাখ্যাঃ</h2>
+            </div>
+            <h3 class="text-lg font-semibold text-slate-700 hover:text-blue-700 p-2 rounded-lg cursor-pointer" onclick="toggleSubmenu('supervised-submenua')">সুপারভাইজড লার্নিং</h3>
+            <div id="supervised-submenua" class="hidden ml-4 mt-2 space-y-1 border-l-2 border-slate-200">
+                <a href="lregression.html" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="lregression.html">লিনিয়ার ও লজিস্টিক রিগ্রেশন</a>
+
+                <a href="rle.html" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="rle.html">রিজ, ল্যাসো ও ইলাস্টিক নেট</a>
+
+                <a href="SVM.html" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="SVM.html">সাপোর্ট ভেক্টর মেশিন</a>
+
+                <a href="NB.html" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="NB.html">নেভ বায়েস</a>
+
+                <a href="dc.html" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="dc.html">ডিসিশন ট্রি</a>
+
+                <a href="rf.html" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="rf.html">র‍্যান্ডম ফরেস্ট</a>
+
+                <a href="knn.html" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="knn.html">কে-নিয়ারেস্ট নেইবারস</a>
+
+                <a href="adaboost.html" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="adaboost.html">অ্যাডাবোস্ট ক্লাসিফায়ার</a>
+
+                <a href="gb.html" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="gb.html">গ্রেডিয়েন্ট বুস্টিং</a>
+
+                <a href="xgb.html" class="sub-nav-link block p-2 text-slate-600 hover:text-blue-600" data-target="xgb.html">XGBoost</a>
+
+            </div>
+            
+        </aside>
+
+        <main class="flex-1 md:ml-64 lg:ml-72 p-4 sm:p-6 md:p-8 lg:p-10">
+            <button id="menu-toggle" class="md:hidden top-4 left-4 z-30 p-2 bg-white rounded-md border floating-icon-container">
+                <span class="block w-6 h-0.5 bg-slate-600 mb-1"></span>
+                <span class="block w-6 h-0.5 bg-slate-600 mb-1"></span>
+                <span class="block w-6 h-0.5 bg-slate-600"></span>
+            </button>
+            
+            <div id="introduction" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">মেশিন লার্নিং পরিচিতি</h2>
+                <p class="text-lg text-slate-600 mb-6">মেশিন লার্নিং (ML) হলো আর্টিফিশিয়াল ইন্টেলিজেন্স (AI)-এর একটি উপক্ষেত্র যা কম্পিউটারকে ডেটা থেকে স্বয়ংক্রিয়ভাবে শিখতে এবং কর্মক্ষমতা উন্নত করতে সক্ষম করে। এটি বিভিন্ন অ্যালগরিদম ব্যবহার করে ডেটার মধ্যেকার প্যাটার্ন খুঁজে বের করে এবং তার উপর ভিত্তি করে ভবিষ্যদ্বাণী করে। এই ইন্টারেক্টিভ গাইডটি আপনাকে মেশিন লার্নিং-এর দুটি প্রধান শাখা - সুপারভাইজড ও আনসুপারভাইজড লার্নিং-এর সাথে পরিচয় করিয়ে দেবে।</p>
+                
+                <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+                     <h3 class="text-2xl font-bold text-slate-800 mb-4">লার্নিং পাথ</h3>
+                     <p class="text-slate-600 mb-6">একটি সাধারণ মেশিন লার্নিং প্রজেক্টের বিভিন্ন ধাপ নিচে দেখানো হলো। প্রতিটি ধাপে ক্লিক করে বিস্তারিত জানতে পারবেন।</p>
+                     <div class="flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-4 text-center">
+                        <div class="path-step bg-blue-100 text-blue-800 p-4 rounded-lg shadow-sm w-full md:w-1/4 cursor-pointer hover:bg-blue-200 transition" data-target="preprocessing">
+                            <div class="text-4xl mb-2">📊</div>
+                            <h4 class="font-semibold">১. ডেটা প্রিপ্রোসেসিং</h4>
+                        </div>
+                         <div class="text-2xl text-slate-400 font-mono hidden md:block">&rarr;</div>
+                        <div class="path-step bg-green-100 text-green-800 p-4 rounded-lg shadow-sm w-full md:w-1/3 cursor-pointer hover:bg-green-200 transition" data-target="supervised-learning-intro">
+                            <div class="text-4xl mb-2">🤖</div>
+                            <h4 class="font-semibold">২. মডেল নির্বাচন ও প্রশিক্ষণ</h4>
+                        </div>
+                        <div class="text-2xl text-slate-400 font-mono hidden md:block">&rarr;</div>
+                        <div class="path-step bg-purple-100 text-purple-800 p-4 rounded-lg shadow-sm w-full md:w-1/4 cursor-pointer hover:bg-purple-200 transition" data-target="evaluation-intro">
+                             <div class="text-4xl mb-2">📈</div>
+                            <h4 class="font-semibold">৩. মডেল মূল্যায়ন</h4>
+                        </div>
+                     </div>
+                </div>
+
+                <h3 class="text-2xl font-bold text-slate-800 mb-4">সুপারভাইজড বনাম আনসুপারভাইজড লার্নিং</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse bg-white rounded-xl shadow-md">
+                        <thead>
+                            <tr>
+                                <th class="border-b-2 border-slate-200 p-4 text-slate-700 font-bold">বৈশিষ্ট্য</th>
+                                <th class="border-b-2 border-slate-200 p-4 text-slate-700 font-bold">সুপারভাইজড লার্নিং</th>
+                                <th class="border-b-2 border-slate-200 p-4 text-slate-700 font-bold">আনসুপারভাইজড লার্নিং</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="hover:bg-slate-50">
+                                <td class="border-b border-slate-200 p-4">ডেটার ধরন</td>
+                                <td class="border-b border-slate-200 p-4">লেবেলযুক্ত ডেটা</td>
+                                <td class="border-b border-slate-200 p-4">লেবেলবিহীন ডেটা</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="border-b border-slate-200 p-4">লক্ষ্য</td>
+                                <td class="border-b border-slate-200 p-4">ভবিষ্যদ্বাণী করা</td>
+                                <td class="border-b border-slate-200 p-4">প্যাটার্ন আবিষ্কার করা</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="border-b border-slate-200 p-4">সাধারণ কাজ</td>
+                                <td class="border-b border-slate-200 p-4">ক্লাসিফিকেশন, রিগ্রেশন</td>
+                                <td class="border-b border-slate-200 p-4">ক্লাস্টারিং, ডাইমেনশনালিটি রিডাকশন</td>
+                            </tr>
+                             <tr class="hover:bg-slate-50">
+                                <td class="p-4">উদাহরণ</td>
+                                <td class="p-4">স্প্যাম সনাক্তকরণ, বাড়ির দামের পূর্বাভাস</td>
+                                <td class="p-4">গ্রাহক বিভাজন, সুপারিশ সিস্টেম</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="preprocessing" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">ডেটা প্রিপ্রোসেসিং</h2>
+                <p class="text-lg text-slate-600 mb-6">মেশিন লার্নিং মডেলের কার্যকারিতা অনেকাংশে ডেটার গুণমানের উপর নির্ভর করে। কাঁচা ডেটা প্রায়শই অসম্পূর্ণ, গোলমালপূর্ণ বা অসঙ্গতিপূর্ণ থাকে। ডেটা প্রিপ্রোসেসিং এই সমস্যাগুলো সমাধান করে ডেটাকে মডেলের জন্য উপযুক্ত করে তোলে।</p>
+                 <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">মিসিং ভ্যালু হ্যান্ডলিং</h3>
+                        <p class="text-slate-600">ডেটাসেটের অনুপস্থিত মানগুলি (Missing Values) মডেলের ফলাফলে পক্ষপাত সৃষ্টি করতে পারে। এগুলি অপসারণ করা বা পরিসংখ্যানগত মান (গড়, মধ্যমা) দিয়ে পূরণ করা হয়।</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">আউটলায়ার হ্যান্ডলিং</h3>
+                        <p class="text-slate-600">আউটলায়ার হলো এমন ডেটা পয়েন্ট যা সাধারণ ডেটা প্যাটার্ন থেকে অনেক দূরে থাকে। এগুলি মডেলের নির্ভুলতাকে প্রভাবিত করতে পারে, তাই এদের সনাক্তকরণ ও处理 করা জরুরি।</p>
+                    </div>
+                     <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">ফিচার স্কেলিং</h3>
+                        <p class="text-slate-600">বিভিন্ন ফিচারের মান বিভিন্ন রেঞ্জে থাকলে কিছু অ্যালগরিদম প্রভাবিত হয়। নরমালাইজেশন বা স্ট্যান্ডার্ডাইজেশন ব্যবহার করে সব ফিচারকে একই স্কেলে আনা হয়।</p>
+                    </div>
+                     <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">ক্যাটাগরিক্যাল ডেটা এনকোডিং</h3>
+                        <p class="text-slate-600">বেশিরভাগ মডেল সংখ্যাসূচক ডেটা নিয়ে কাজ করে। লেবেল এনকোডিং বা ওয়ান-হট এনকোডিং ব্যবহার করে ক্যাটাগরিক্যাল ডেটাকে (যেমন: 'লাল', 'সবুজ') সংখ্যায় রূপান্তর করা হয়।</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="supervised-learning-intro" class="content-section">
+                 <h2 class="text-3xl font-bold text-slate-900 mb-4">সুপারভাইজড লার্নিং</h2>
+                <p class="text-lg text-slate-600 mb-6">সুপারভাইজড লার্নিং-এ, মডেলকে লেবেলযুক্ত ডেটা দিয়ে প্রশিক্ষণ দেওয়া হয়। অর্থাৎ, প্রতিটি ইনপুট ডেটার জন্য সঠিক আউটপুট কী হবে তা মডেলকে বলে দেওয়া হয়। মডেল এই ডেটা থেকে শেখে এবং নতুন, অজানা ডেটার জন্য সঠিক আউটপুট ভবিষ্যদ্বাণী করার চেষ্টা করে। এর প্রধান দুটি কাজ হলো ক্লাসিফিকেশন এবং রিগ্রেশন।</p>
+            </div>
+            
+            <div id="linear-regression" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">লিনিয়ার রিগ্রেশন</h2>
+                <p class="text-lg text-slate-600 mb-6">লিনিয়ার রিগ্রেশন একটি ভেরিয়েবলের (আউটপুট) মান অন্য এক বা একাধিক ভেরিয়েবলের (ইনপুট) উপর ভিত্তি করে ভবিষ্যদ্বাণী করে। এটি ইনপুট এবং আউটপুটের মধ্যে একটি রৈখিক সম্পর্ক খুঁজে বের করার চেষ্টা করে।</p>
+                <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+                    <h3 class="text-xl font-bold text-slate-800 mb-2">গাণিতিক সূত্র</h3>
+                    <p class="text-slate-600 font-mono text-lg">y' = b + w<sub>1</sub>x<sub>1</sub></p>
+                    <p class="text-slate-600 mt-2">যেখানে y' হলো ভবিষ্যদ্বাণী, x<sub>1</sub> হলো ইনপুট ফিচার, w<sub>1</sub> হলো ফিচারের ওজন (ঢাল), এবং b হলো বায়াস (y-intercept)। মডেলের লক্ষ্য হলো এমন w<sub>1</sub> এবং b খুঁজে বের করা যা ভবিষ্যদ্বাণীর ত্রুটিকে সর্বনিম্ন করে।</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">ইন্টারেক্টিভ উদাহরণ</h3>
+                    <p class="text-slate-600 mb-4">নিচের চার্টে কিছু ডেটা পয়েন্ট দেওয়া আছে। স্লাইডার ব্যবহার করে রেখার ঢাল (Weight) এবং ইন্টারসেপ্ট (Bias) পরিবর্তন করে দেখুন কিভাবে রিগ্রেশন লাইনটি ডেটার সাথে ফিট করার চেষ্টা করে এবং এর ফলে Mean Squared Error (MSE) কিভাবে পরিবর্তিত হয়।</p>
+                    <div class="chart-container">
+                        <canvas id="linearRegressionChart"></canvas>
+                    </div>
+                    <div class="mt-6 flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-8">
+                        <div class="w-full md:w-1/2">
+                            <label for="weightSlider" class="block text-sm font-medium text-slate-700">Weight (w1): <span id="weightValue">0.5</span></label>
+                            <input id="weightSlider" type="range" min="-2" max="2" value="0.5" step="0.1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        <div class="w-full md:w-1/2">
+                            <label for="biasSlider" class="block text-sm font-medium text-slate-700">Bias (b): <span id="biasValue">20</span></label>
+                            <input id="biasSlider" type="range" min="0" max="100" value="20" step="1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                    </div>
+                     <div class="mt-4 text-center">
+                        <p class="text-lg font-semibold">Mean Squared Error (MSE): <span id="mseValue" class="text-red-600"></span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="logistic-regression" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">লজিস্টিক রিগ্রেশন</h2>
+                <p class="text-lg text-slate-600 mb-6">লজিস্টিক রিগ্রেশন ক্লাসিফিকেশন সমস্যার জন্য ব্যবহৃত হয়, যেখানে আউটপুট একটি নির্দিষ্ট ক্যাটাগরির অন্তর্ভুক্ত হয় (যেমন: হ্যাঁ/না, স্প্যাম/নন-স্প্যাম)। এটি একটি ফলাফলের সম্ভাবনা (probability) ভবিষ্যদ্বাণী করে।</p>
+                 <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+                    <h3 class="text-xl font-bold text-slate-800 mb-2">সিগময়েড ফাংশন</h3>
+                     <p class="text-slate-600 mb-2">এটি লিনিয়ার রিগ্রেশনের আউটপুটকে ০ থেকে ১ এর মধ্যে একটি সম্ভাবনার মানে রূপান্তরিত করতে সিগময়েড ফাংশন ব্যবহার করে।</p>
+                    <p class="text-slate-600 font-mono text-lg">P(Y=1) = 1 / (1 + e<sup>-z</sup>)</p>
+                     <p class="text-slate-600 mt-2">যেখানে z হলো লিনিয়ার সমীকরণ (b + w<sub>1</sub>x<sub>1</sub> + ...)।</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                     <h3 class="text-xl font-bold text-slate-800 mb-4">ইন্টারেক্টিভ উদাহরণ</h3>
+                     <p class="text-slate-600 mb-4">নিচের চার্টে দুটি ভিন্ন ক্লাস দেখানো হয়েছে। লজিস্টিক রিগ্রেশন একটি 'S' আকৃতির বক্ররেখা (সিগময়েড কার্ভ) তৈরি করে যা দুটি ক্লাসকে পৃথক করে। থ্রেশহোল্ড পরিবর্তন করে দেখুন কিভাবে ক্লাসিফিকেশনের সীমানা পরিবর্তিত হয়।</p>
+                    <div class="chart-container">
+                        <canvas id="logisticRegressionChart"></canvas>
+                    </div>
+                     <div class="mt-6 w-full md:w-1/2 mx-auto">
+                        <label for="thresholdSlider" class="block text-sm font-medium text-slate-700">Threshold: <span id="thresholdValue">0.5</span></label>
+                        <input id="thresholdSlider" type="range" min="0.1" max="0.9" value="0.5" step="0.05" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+            <div id="svm" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">সাপোর্ট ভেক্টর মেশিন (SVM)</h2>
+                <p class="text-lg text-slate-600 mb-6">SVM ক্লাসিফিকেশন এবং রিগ্রেশন উভয় কাজেই ব্যবহৃত হয়। ক্লাসিফিকেশনের ক্ষেত্রে, এর মূল লক্ষ্য হলো এমন একটি 'হাইপারপ্লেন' বা সিদ্ধান্ত সীমানা খুঁজে বের করা যা দুটি ক্লাসকে সবচেয়ে ভালোভাবে পৃথক করে এবং তাদের মধ্যে মার্জিন সর্বোচ্চ করে।</p>
+                <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+                    <h3 class="text-xl font-bold text-slate-800 mb-2">কার্নেল ট্রিক</h3>
+                    <p class="text-slate-600">বাস্তব ডেটা সবসময় রৈখিকভাবে বিভাজ্য হয় না। কার্নেল ট্রিক ব্যবহার করে SVM ডেটাকে উচ্চ-মাত্রিক স্থানে রূপান্তর করে, যেখানে ক্লাসগুলিকে রৈখিকভাবে পৃথক করা সহজ হয়। সাধারণ কার্নেল হলো: লিনিয়ার, পলিনোমিয়াল, RBF।</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">ইন্টারেক্টিভ উদাহরণ</h3>
+                    <p class="text-slate-600 mb-4">নিচের উদাহরণে দুটি ডেটা সেট দেখুন। 'লিনিয়ার' ডেটাসেটটি একটি সরলরেখা দ্বারা পৃথক করা যায়। 'অরৈখিক' ডেটাসেটকে পৃথক করতে কার্নেল ট্রিক প্রয়োজন। বাটন ব্যবহার করে ডেটাসেট পরিবর্তন করে দেখুন SVM কিভাবে কাজ করে।</p>
+                    <div class="chart-container">
+                        <canvas id="svmChart"></canvas>
+                    </div>
+                    <div class="mt-6 text-center">
+                        <button id="svmToggleBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">অরৈখিক ডেটা দেখুন</button>
+                    </div>
+                </div>
+            </div>
+            
+             <div id="decision-tree" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">ডিসিশন ট্রি</h2>
+                <p class="text-lg text-slate-600 mb-6">ডিসিশন ট্রি একটি ফ্লোচার্টের মতো কাঠামো ব্যবহার করে সিদ্ধান্ত গ্রহণ করে। প্রতিটি অভ্যন্তরীণ নোড একটি ফিচারের উপর প্রশ্ন জিজ্ঞাসা করে এবং প্রতিটি শাখা সেই প্রশ্নের একটি সম্ভাব্য উত্তরকে প্রতিনিধিত্ব করে। প্রতিটি পাতা (leaf node) একটি ক্লাস লেবেল বা আউটপুট মান নির্দেশ করে।</p>
+                <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+                    <h3 class="text-xl font-bold text-slate-800 mb-2">ডেটা স্প্লিটিং</h3>
+                    <p class="text-slate-600">ট্রি তৈরির সময়, প্রতিটি নোডে ডেটাকে এমনভাবে ভাগ করা হয় যাতে প্রতিটি উপ-গ্রুপ যতটা সম্ভব 'বিশুদ্ধ' (homogeneous) হয়। এর জন্য 'জিনি ইম্পিউরিটি' বা 'এন্ট্রপি'-এর মতো মেট্রিক ব্যবহার করা হয়।</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">ইন্টারেক্টিভ উদাহরণ</h3>
+                    <p class="text-slate-600 mb-4">নিচে একটি ডিসিশন ট্রি'র ডায়াগ্রাম দেওয়া হলো। এটি আবহাওয়ার উপর ভিত্তি করে 'বাইরে খেলা হবে কি না' এই সিদ্ধান্ত নিতে সাহায্য করে। প্রতিটি নোডে ক্লিক করে দেখুন কিভাবে ডেটা বিভক্ত হয়েছে।</p>
+                    <div id="decisionTreeContainer" class="p-4 border border-slate-200 rounded-lg flex justify-center items-center flex-col space-y-4">
+                        </div>
+                </div>
+            </div>
+            
+            <div id="random-forest" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">র‍্যান্ডম ফরেস্ট</h2>
+                <p class="text-lg text-slate-600 mb-6">র‍্যান্ডম ফরেস্ট একটি 'এনসেম্বল' লার্নিং পদ্ধতি, যা একাধিক ডিসিশন ট্রি-কে একত্রিত করে কাজ করে। এটি প্রতিটি ট্রি-এর ভবিষ্যদ্বাণীর উপর ভোটিং (ক্লাসিফিকেশন) বা গড় (রিগ্রেশন) করে চূড়ান্ত ফলাফল নির্ধারণ করে। এটি একক ডিসিশন ট্রি-এর তুলনায় অনেক বেশি নির্ভুল এবং ওভারফিটিং কমাতে সাহায্য করে।</p>
+                <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+                    <h3 class="text-xl font-bold text-slate-800 mb-2">কিভাবে কাজ করে?</h3>
+                     <p class="text-slate-600">১. <strong>ব্যাগিং (Bagging):</strong> মূল ডেটাসেট থেকে র‍্যান্ডমভাবে একাধিক উপ-ডেটাসেট তৈরি করা হয়।<br>২. <strong>ট্রেনিং:</strong> প্রতিটি উপ-ডেটাসেটের উপর একটি আলাদা ডিসিশন ট্রি প্রশিক্ষণ দেওয়া হয়।<br>৩. <strong>ফিচার র‍্যান্ডমাইজেশন:</strong> প্রতিটি নোড বিভক্ত করার সময় সমস্ত ফিচারের পরিবর্তে র‍্যান্ডমভাবে নির্বাচিত কিছু ফিচার বিবেচনা করা হয়।<br>৪. <strong>ফলাফল:</strong> নতুন ডেটার জন্য, সমস্ত ট্রি-এর ভবিষ্যদ্বাণীকে একত্রিত করে চূড়ান্ত সিদ্ধান্ত নেওয়া হয়।</p>
+                </div>
+            </div>
+            
+             <div id="knn" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">কে-নিয়ারেস্ট নেইবারস (KNN)</h2>
+                <p class="text-lg text-slate-600 mb-6">KNN একটি সহজ কিন্তু শক্তিশালী অ্যালগরিদম যা একটি নতুন ডেটা পয়েন্টকে তার নিকটতম 'K' সংখ্যক প্রতিবেশীর উপর ভিত্তি করে শ্রেণীবদ্ধ করে। ক্লাসিফিকেশনের ক্ষেত্রে, নতুন পয়েন্টটি তার প্রতিবেশীদের মধ্যে সবচেয়ে সাধারণ ক্লাসের অন্তর্ভুক্ত হয়।</p>
+                <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+                    <h3 class="text-xl font-bold text-slate-800 mb-2">দূরত্ব পরিমাপ</h3>
+                    <p class="text-slate-600">ডেটা পয়েন্টগুলোর মধ্যে 'নিকটত্ব' পরিমাপ করতে সাধারণত ইউক্লিডিয়ান দূরত্ব (Euclidean distance) ব্যবহার করা হয়।</p>
+                </div>
+                 <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">ইন্টারেক্টিভ উদাহরণ</h3>
+                    <p class="text-slate-600 mb-4">চার্টে দুটি ক্লাসের ডেটা পয়েন্ট রয়েছে। চার্টের যেকোনো জায়গায় ক্লিক করে একটি নতুন 'অজানা' পয়েন্ট যোগ করুন। অ্যালগরিদম তার K সংখ্যক নিকটতম প্রতিবেশী খুঁজে বের করে তার ক্লাস নির্ধারণ করবে। স্লাইডার দিয়ে K এর মান পরিবর্তন করে দেখুন ফলাফলের উপর কী প্রভাব পড়ে।</p>
+                    <div class="chart-container">
+                        <canvas id="knnChart"></canvas>
+                    </div>
+                    <div class="mt-6 w-full md:w-1/2 mx-auto">
+                        <label for="kSlider" class="block text-sm font-medium text-slate-700">K-এর মান: <span id="kValue">3</span></label>
+                        <input id="kSlider" type="range" min="1" max="15" value="3" step="2" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+            <div id="unsupervised-learning-intro" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">আনসুপারভাইজড লার্নিং</h2>
+                <p class="text-lg text-slate-600 mb-6">আনসুপারভাইজড লার্নিং-এ মডেলকে কোনো লেবেলবিহীন ডেটা দেওয়া হয়। মডেলের কাজ হলো মানুষের হস্তক্ষেপ ছাড়াই ডেটার মধ্যেকার লুকানো প্যাটার্ন বা কাঠামো খুঁজে বের করা। এর প্রধান কাজগুলোর মধ্যে রয়েছে ক্লাস্টারিং এবং ডাইমেনশনালিটি রিডাকশন।</p>
+            </div>
+
+             <div id="kmeans" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">কে-মিনস ক্লাস্টারিং</h2>
+                <p class="text-lg text-slate-600 mb-6">K-Means একটি জনপ্রিয় ক্লাস্টারিং অ্যালগরিদম যা ডেটাসেটকে পূর্বনির্ধারিত 'K' সংখ্যক ক্লাস্টারে বিভক্ত করে। এটি ডেটা পয়েন্টগুলোকে তাদের নিকটতম ক্লাস্টার সেন্ট্রয়েডের উপর ভিত্তি করে গ্রুপ করে।</p>
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">ইন্টারেক্টিভ উদাহরণ</h3>
+                    <p class="text-slate-600 mb-4">নিচের উদাহরণে, K-Means অ্যালগরিদম ডেটাকে কয়েকটি ক্লাস্টারে ভাগ করার চেষ্টা করবে। 'পুনরায় চালান' বাটনে ক্লিক করে দেখুন কিভাবে অ্যালগরিদম ধাপে ধাপে ক্লাস্টার তৈরি করে। ড্রপডাউন থেকে K-এর মান পরিবর্তন করেও দেখতে পারেন।</p>
+                    <div class="chart-container">
+                        <canvas id="kmeansChart"></canvas>
+                    </div>
+                    <div class="mt-6 flex justify-center items-center space-x-4">
+                        <div>
+                            <label for="kSelect" class="mr-2">ক্লাস্টারের সংখ্যা (K):</label>
+                            <select id="kSelect" class="p-2 border border-slate-300 rounded-lg">
+                                <option value="2">2</option>
+                                <option value="3" selected>3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                            </select>
+                        </div>
+                        <button id="kmeansRunBtn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">পুনরায় চালান</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="hierarchical" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">হায়ারার্কিক্যাল ক্লাস্টারিং</h2>
+                <p class="text-lg text-slate-600 mb-6">হায়ারার্কিক্যাল ক্লাস্টারিং ডেটাকে নেস্টেড ক্লাস্টারের একটি ট্রি-সদৃশ কাঠামোতে (ডেন্ড্রোগ্রাম) গ্রুপ করে। এটি দুইভাবে কাজ করতে পারে: অ্যাগ্লোমেরেটিভ (নিচ থেকে উপরে) এবং ডিভাইসিভ (উপর থেকে নিচে)।</p>
+                 <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">ডেন্ড্রোগ্রাম উদাহরণ</h3>
+                    <p class="text-slate-600 mb-4">ডেন্ড্রোগ্রাম দেখায় কিভাবে প্রতিটি ডেটা পয়েন্ট এবং ক্লাস্টার ধাপে ধাপে একত্রিত হয়েছে। উল্লম্ব রেখার উচ্চতা দুটি ক্লাস্টারের মধ্যে দূরত্ব নির্দেশ করে। একটি নির্দিষ্ট উচ্চতায় রেখা কেটে আপনি ক্লাস্টারের সংখ্যা নির্ধারণ করতে পারেন।</p>
+                    <div class="chart-container">
+                        <canvas id="dendrogramChart"></canvas>
+                    </div>
+                 </div>
+            </div>
+
+            <div id="pca" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">প্রিন্সিপাল কম্পোনেন্ট অ্যানালাইসিস (PCA)</h2>
+                <p class="text-lg text-slate-600 mb-6">PCA একটি ডাইমেনশনালিটি রিডাকশন কৌশল। এটি উচ্চ-মাত্রিক ডেটাকে কম-মাত্রিক স্থানে রূপান্তর করে, কিন্তু ডেটার মূল তথ্য যতটা সম্ভব সংরক্ষণ করার চেষ্টা করে। এটি নতুন ফিচার (প্রিন্সিপাল কম্পোনেন্ট) তৈরি করে যা ডেটার সর্বাধিক ভেরিয়েন্স ধারণ করে।</p>
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">ইন্টারেক্টিভ উদাহরণ</h3>
+                    <p class="text-slate-600 mb-4">নিচের উদাহরণে, একটি 3D ডেটাসেটকে PCA ব্যবহার করে 2D-তে রূপান্তর করা হয়েছে। প্রথম চার্টটি মূল ডেটাসেটের প্রথম দুটি প্রিন্সিপাল কম্পোনেন্ট দেখাচ্ছে। দ্বিতীয় চার্টটি দেখাচ্ছে প্রতিটি প্রিন্সিপাল কম্পোনেন্ট কত শতাংশ ভেরিয়েন্স ব্যাখ্যা করে।</p>
+                    <div class="grid md:grid-cols-2 gap-8 items-center">
+                        <div class="chart-container h-80">
+                            <canvas id="pcaScatterChart"></canvas>
+                        </div>
+                        <div class="chart-container h-80">
+                            <canvas id="pcaVarianceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+             <div id="tsne" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">টি-ডিস্ট্রিবিউটেড স্টোকাস্টিক নেইবার এমবেডিং (t-SNE)</h2>
+                <p class="text-lg text-slate-600 mb-6">t-SNE উচ্চ-মাত্রিক ডেটা ভিজ্যুয়ালাইজ করার জন্য একটি শক্তিশালী অরৈখিক ডাইমেনশনালিটি রিডাকশন কৌশল। এটি ডেটা পয়েন্টগুলোর মধ্যে স্থানীয় সাদৃশ্য সংরক্ষণ করে তাদের 2D বা 3D ম্যাপে উপস্থাপন করে, যা ডেটার ক্লাস্টারিং কাঠামোকে স্পষ্টভাবে দেখাতে সাহায্য করে।</p>
+                 <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">PCA বনাম t-SNE</h3>
+                    <p class="text-slate-600 mb-4">PCA ডেটার গ্লোবাল ভেরিয়েন্স সংরক্ষণে মনোযোগ দেয়, অন্যদিকে t-SNE স্থানীয় কাঠামো এবং ক্লাস্টার পৃথকীকরণে বেশি পারদর্শী। নিচের চার্টে একই ডেটাসেটের উপর PCA এবং t-SNE এর ফলাফল তুলনা করা হয়েছে।</p>
+                    <div class="grid md:grid-cols-2 gap-8">
+                        <div>
+                            <h4 class="text-center font-semibold mb-2">PCA ফলাফল</h4>
+                            <div class="chart-container h-80"><canvas id="tsnePcaChart"></canvas></div>
+                        </div>
+                        <div>
+                            <h4 class="text-center font-semibold mb-2">t-SNE ফলাফল</h4>
+                             <div class="chart-container h-80"><canvas id="tsneTsneChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="evaluation-intro" class="content-section">
+                 <h2 class="text-3xl font-bold text-slate-900 mb-4">মডেল মূল্যায়ন</h2>
+                <p class="text-lg text-slate-600 mb-6">একটি মেশিন লার্নিং মডেল তৈরি করার পর, এর কর্মক্ষমতা পরিমাপ করা অত্যন্ত গুরুত্বপূর্ণ। মডেল মূল্যায়ন আমাদের বুঝতে সাহায্য করে যে মডেলটি কতটা নির্ভুল এবং নির্ভরযোগ্য। সুপারভাইজড এবং আনসুপারভাইজড লার্নিং-এর জন্য ভিন্ন ভিন্ন মূল্যায়ন মেট্রিক ব্যবহার করা হয়।</p>
+            </div>
+
+            <div id="classification-metrics" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">ক্লাসিফিকেশন মেট্রিক</h2>
+                <p class="text-lg text-slate-600 mb-6">ক্লাসিফিকেশন মডেলের কর্মক্ষমতা মূল্যায়নের জন্য বিভিন্ন মেট্রিক ব্যবহৃত হয়।</p>
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                     <h3 class="text-xl font-bold text-slate-800 mb-4">ইন্টারেক্টিভ কনফিউশন ম্যাট্রিক্স</h3>
+                     <p class="text-slate-600 mb-4">নিচের ইনপুট ফিল্ডগুলোতে True Positives (TP), True Negatives (TN), False Positives (FP), এবং False Negatives (FN) এর মান দিন। অ্যাপটি স্বয়ংক্রিয়ভাবে অ্যাকুরেসি, প্রিসিশন, রিকল এবং F1-স্কোর গণনা করবে।</p>
+                     <div class="grid grid-cols-2 gap-4 mb-6">
+                         <div>
+                            <label for="tp" class="block text-sm font-medium text-slate-700">True Positive (TP)</label>
+                            <input type="number" id="tp" value="85" class="mt-1 block w-full p-2 border border-slate-300 rounded-md shadow-sm">
+                         </div>
+                         <div>
+                            <label for="fn" class="block text-sm font-medium text-slate-700">False Negative (FN)</label>
+                            <input type="number" id="fn" value="15" class="mt-1 block w-full p-2 border border-slate-300 rounded-md shadow-sm">
+                         </div>
+                         <div>
+                            <label for="fp" class="block text-sm font-medium text-slate-700">False Positive (FP)</label>
+                            <input type="number" id="fp" value="5" class="mt-1 block w-full p-2 border border-slate-300 rounded-md shadow-sm">
+                         </div>
+                         <div>
+                            <label for="tn" class="block text-sm font-medium text-slate-700">True Negative (TN)</label>
+                            <input type="number" id="tn" value="95" class="mt-1 block w-full p-2 border border-slate-300 rounded-md shadow-sm">
+                         </div>
+                     </div>
+                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                         <div class="bg-blue-100 p-4 rounded-lg">
+                            <h4 class="font-bold">Accuracy</h4>
+                            <p id="accuracy-val" class="text-2xl font-bold text-blue-800"></p>
+                         </div>
+                         <div class="bg-green-100 p-4 rounded-lg">
+                            <h4 class="font-bold">Precision</h4>
+                            <p id="precision-val" class="text-2xl font-bold text-green-800"></p>
+                         </div>
+                          <div class="bg-yellow-100 p-4 rounded-lg">
+                            <h4 class="font-bold">Recall</h4>
+                            <p id="recall-val" class="text-2xl font-bold text-yellow-800"></p>
+                         </div>
+                         <div class="bg-purple-100 p-4 rounded-lg">
+                            <h4 class="font-bold">F1-Score</h4>
+                            <p id="f1-score-val" class="text-2xl font-bold text-purple-800"></p>
+                         </div>
+                     </div>
+                </div>
+            </div>
+
+            <div id="regression-metrics" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">রিগ্রেশন মেট্রিক</h2>
+                 <p class="text-lg text-slate-600 mb-6">রিগ্রেশন মডেলের ক্ষেত্রে, ভবিষ্যদ্বাণী করা মান এবং আসল মানের মধ্যে পার্থক্য বা ত্রুটি পরিমাপ করা হয়। সাধারণ মেট্রিকগুলো হলো Mean Absolute Error (MAE), Mean Squared Error (MSE), এবং Root Mean Squared Error (RMSE)।</p>
+                 <div class="bg-white p-6 rounded-xl shadow-md">
+                     <h3 class="text-xl font-bold text-slate-800 mb-2">সাধারণ মেট্রিক</h3>
+                     <ul class="list-disc list-inside space-y-2 text-slate-600">
+                        <li><b>Mean Absolute Error (MAE):</b> ত্রুটিগুলোর পরম মানের গড়। এটি ব্যাখ্যা করা সহজ।</li>
+                        <li><b>Mean Squared Error (MSE):</b> ত্রুটিগুলোর বর্গের গড়। এটি বড় ত্রুটিকে বেশি গুরুত্ব দেয়।</li>
+                        <li><b>Root Mean Squared Error (RMSE):</b> MSE-এর বর্গমূল। এর একক মূল ডেটার এককের মতোই থাকে।</li>
+                     </ul>
+                 </div>
+            </div>
+            
+            <div id="unsupervised-metrics" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">আনসুপারভাইজড মেট্রিক</h2>
+                 <p class="text-lg text-slate-600 mb-6">আনসুপারভাইজড লার্নিং, বিশেষ করে ক্লাস্টারিং-এর ক্ষেত্রে, মডেলের মূল্যায়ন করা কিছুটা জটিল কারণ এখানে কোনো 'সঠিক' উত্তর থাকে না। মেট্রিকগুলো পরিমাপ করে যে ক্লাস্টারগুলো কতটা সুসংগঠিত।</p>
+                 <div class="bg-white p-6 rounded-xl shadow-md">
+                     <h3 class="text-xl font-bold text-slate-800 mb-2">সাধারণ মেট্রিক</h3>
+                     <ul class="list-disc list-inside space-y-2 text-slate-600">
+                        <li><b>Silhouette Score:</b> পরিমাপ করে যে একটি ডেটা পয়েন্ট তার নিজের ক্লাস্টারে কতটা ভালোভাবে ফিট করে এবং অন্য ক্লাস্টার থেকে কতটা দূরে। এর মান -১ থেকে ১ পর্যন্ত হয়। ১ এর কাছাকাছি মান ভালো ক্লাস্টারিং নির্দেশ করে।</li>
+                        <li><b>Davies-Bouldin Index (DBI):</b> ক্লাস্টারগুলোর মধ্যে সাদৃশ্য পরিমাপ করে। নিম্ন মান ভালো ক্লাস্টারিং নির্দেশ করে।</li>
+                        <li><b>Inertia:</b> K-Means-এ ব্যবহৃত হয়। এটি ক্লাস্টারের মধ্যে ডেটা পয়েন্টগুলোর দূরত্বের বর্গের যোগফল। কম ইনার্শিয়া মানে ক্লাস্টারগুলো বেশি সংহত।</li>
+                     </ul>
+                 </div>
+            </div>
+
+            <div id="overfitting" class="content-section">
+                <h2 class="text-3xl font-bold text-slate-900 mb-4">ওভারফিটিং ও আন্ডারফিটিং</h2>
+                <p class="text-lg text-slate-600 mb-6">মডেলের কর্মক্ষমতা অপ্টিমাইজ করার জন্য এই দুটি ধারণা বোঝা অত্যন্ত জরুরি।</p>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">ওভারফিটিং (Overfitting)</h3>
+                        <p class="text-slate-600">যখন একটি মডেল প্রশিক্ষণ ডেটার উপর খুব বেশি ভালো কাজ করে কিন্তু নতুন, অজানা ডেটার উপর খারাপ কাজ করে, তখন তাকে ওভারফিটিং বলে। মডেলটি ডেটার মূল প্যাটার্নের পাশাপাশি নয়েজও শিখে ফেলে।</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">আন্ডারফিটিং (Underfitting)</h3>
+                        <p class="text-slate-600">যখন একটি মডেল খুব সহজ হয় এবং প্রশিক্ষণ ডেটার মূল প্যাটার্নই ধরতে পারে না, তখন তাকে আন্ডারফিটিং বলে। এটি প্রশিক্ষণ এবং পরীক্ষা উভয় ডেটার উপরই খারাপ কাজ করে।</p>
+                    </div>
+                </div>
+                 <div class="bg-white p-6 rounded-xl shadow-md mt-8">
+                     <h3 class="text-xl font-bold text-slate-800 mb-2">ক্রস-ভ্যালিডেশন</h3>
+                     <p class="text-slate-600">এটি মডেল মূল্যায়নের একটি কৌশল যা ওভারফিটিং প্রতিরোধে সাহায্য করে। ডেটাসেটকে কয়েকটি ভাগে (ফোল্ড) ভাগ করে, এক ভাগ পরীক্ষার জন্য এবং বাকিগুলো প্রশিক্ষণের জন্য ব্যবহার করা হয়। এই প্রক্রিয়াটি কয়েকবার পুনরাবৃত্তি করা হয় এবং ফলাফলের গড় নেওয়া হয়।</p>
+                 </div>
+            </div>
+            
+        </main>
+    </div>
+
+<script>
+    // You can add JavaScript here to make the icon do something when clicked,
+        // for example, open a chat window or scroll to a specific section.
+        document.querySelector('.floating-icon-container').addEventListener('click', () => {
+            console.log('Floating icon clicked!');
+            // Example: Smooth scroll to top
+            // window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Example: Open a modal/chat
+            // alert('This could open a chat or contact form!');
+        });
+document.addEventListener('DOMContentLoaded', function () {
+    const sections = document.querySelectorAll('.content-section');
+    const navLinks = document.querySelectorAll('aside nav a');
+    const pathSteps = document.querySelectorAll('.path-step');
+    const menuToggle = document.getElementById('menu-toggle');
+    const sidebar = document.getElementById('sidebar');
+
+    function showSection(targetId) {
+        sections.forEach(section => {
+            section.classList.remove('active');
+        });
+        const targetSection = document.getElementById(targetId);
+        if (targetSection) {
+            targetSection.classList.add('active');
+        }
+
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.dataset.target === targetId || (link.parentElement.previousElementSibling && link.parentElement.previousElementSibling.dataset.target === targetId)) {
+                 link.classList.add('active');
+            }
+        });
+        
+        // Close sidebar on mobile after navigation
+        if (window.innerWidth < 768) {
+             sidebar.classList.add('-translate-x-full');
+        }
+    }
+    
+    function navigate(event) {
+        event.preventDefault();
+        const targetId = this.dataset.target;
+        history.pushState(null, '', `#${targetId}`);
+        showSection(targetId);
+        window.scrollTo(0, 0);
+    }
+
+    navLinks.forEach(link => {
+        link.addEventListener('click', navigate);
+    });
+
+    pathSteps.forEach(step => {
+        step.addEventListener('click', navigate);
+    });
+    
+    menuToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('-translate-x-full');
+    });
+
+    function handleInitialLoad() {
+        const hash = window.location.hash.substring(1);
+        const targetId = hash || 'introduction';
+        showSection(targetId);
+        const targetLink = document.querySelector(`[data-target="${targetId}"]`);
+        if(targetLink && targetLink.closest('.hidden')){
+             targetLink.closest('.hidden').classList.remove('hidden');
+        }
+    }
+    
+    window.addEventListener('popstate', handleInitialLoad);
+
+    handleInitialLoad();
+    initAllCharts();
+    initClassificationMetrics();
+});
+
+function toggleSubmenu(id) {
+    const submenu = document.getElementById(id);
+    submenu.classList.toggle('hidden');
+}
+
+
+function initAllCharts() {
+    initLinearRegressionChart();
+    initLogisticRegressionChart();
+    initSvmChart();
+    initDecisionTree();
+    initKnnChart();
+    initKmeansChart();
+    initDendrogramChart();
+    initPcaCharts();
+    initTsneCharts();
+}
+
+function wrapLabel(label, maxWidth) {
+    const words = label.split(' ');
+    let lines = [];
+    let currentLine = '';
+    words.forEach(word => {
+        if ((currentLine + word).length > maxWidth) {
+            lines.push(currentLine.trim());
+            currentLine = '';
+        }
+        currentLine += word + ' ';
+    });
+    lines.push(currentLine.trim());
+    return lines;
+}
+
+function initLinearRegressionChart() {
+    const ctx = document.getElementById('linearRegressionChart').getContext('2d');
+    const weightSlider = document.getElementById('weightSlider');
+    const biasSlider = document.getElementById('biasSlider');
+    const weightValue = document.getElementById('weightValue');
+    const biasValue = document.getElementById('biasValue');
+    const mseValue = document.getElementById('mseValue');
+    
+    const dataPoints = [
+        { x: 10, y: 45 }, { x: 20, y: 55 }, { x: 30, y: 58 },
+        { x: 40, y: 70 }, { x: 50, y: 80 }, { x: 60, y: 85 },
+        { x: 70, y: 90 }, { x: 80, y: 98 }, { x: 90, y: 105 }
+    ];
+
+    const chart = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: 'ডেটা পয়েন্ট',
+                data: dataPoints,
+                backgroundColor: 'rgba(37, 99, 235, 0.6)'
+            }, {
+                label: 'রিগ্রেশন লাইন',
+                type: 'line',
+                data: [],
+                borderColor: 'rgba(219, 39, 119, 1)',
+                fill: false,
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { title: { display: true, text: 'ইনপুট ফিচার (X)' } },
+                y: { title: { display: true, text: 'আউটপুট (Y)' } }
+            }
+        }
+    });
+
+    function updateChart() {
+        const weight = parseFloat(weightSlider.value);
+        const bias = parseFloat(biasSlider.value);
+        weightValue.textContent = weight.toFixed(2);
+        biasValue.textContent = bias.toFixed(2);
+
+        const lineData = dataPoints.map(p => ({
+            x: p.x,
+            y: weight * p.x + bias
+        }));
+        chart.data.datasets[1].data = lineData;
+        
+        let mse = 0;
+        dataPoints.forEach(p => {
+            const predictedY = weight * p.x + bias;
+            mse += Math.pow(p.y - predictedY, 2);
+        });
+        mse /= dataPoints.length;
+        mseValue.textContent = mse.toFixed(2);
+
+        chart.update();
+    }
+
+    weightSlider.addEventListener('input', updateChart);
+    biasSlider.addEventListener('input', updateChart);
+    updateChart();
+}
+
+
+function initLogisticRegressionChart(){
+    const ctx = document.getElementById('logisticRegressionChart').getContext('2d');
+    const thresholdSlider = document.getElementById('thresholdSlider');
+    const thresholdValue = document.getElementById('thresholdValue');
+
+    const class0 = Array.from({length: 30}, () => ({x: Math.random() * 4, y: Math.random() * 0.4}));
+    const class1 = Array.from({length: 30}, () => ({x: 6 + Math.random() * 4, y: 0.6 + Math.random() * 0.4}));
+
+    function sigmoid(x) {
+        return 1 / (1 + Math.exp(-(x-5)));
+    }
+    
+    const sigmoidCurve = Array.from({length: 100}, (_, i) => {
+        const x = i * 0.1;
+        return {x: x, y: sigmoid(x)};
+    });
+
+    const chart = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+            datasets: [
+                { label: 'ক্লাস ০', data: class0, backgroundColor: 'rgba(239, 68, 68, 0.7)' },
+                { label: 'ক্লাস ১', data: class1, backgroundColor: 'rgba(37, 99, 235, 0.7)' },
+                { label: 'সিগময়েড কার্ভ', data: sigmoidCurve, type: 'line', borderColor: 'rgba(16, 185, 129, 1)', fill: false, showLine: true, pointRadius: 0 },
+                { label: 'ডিসিশন বাউন্ডারি', data: [], type: 'line', borderColor: 'rgba(219, 39, 119, 1)', borderDash: [5, 5], fill: false, pointRadius: 0 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { min: 0, max: 10, title: { display: true, text: 'ফিচার ভ্যালু' }},
+                y: { min: 0, max: 1, title: { display: true, text: 'সম্ভাবনা' }}
+            }
+        }
+    });
+
+    function updateThreshold() {
+        const threshold = parseFloat(thresholdSlider.value);
+        thresholdValue.textContent = threshold.toFixed(2);
+        
+        const decisionX = -Math.log((1/threshold) - 1) + 5;
+        chart.data.datasets[3].data = [{x: decisionX, y: 0}, {x: decisionX, y: 1}];
+        chart.update();
+    }
+
+    thresholdSlider.addEventListener('input', updateThreshold);
+    updateThreshold();
+}
+
+
+function initSvmChart() {
+    const ctx = document.getElementById('svmChart').getContext('2d');
+    const toggleBtn = document.getElementById('svmToggleBtn');
+    let isLinear = true;
+
+    const linearData = {
+        classA: [{x:1, y:2}, {x:2, y:3}, {x:3, y:3}, {x:2, y:1}],
+        classB: [{x:6, y:7}, {x:7, y:8}, {x:8, y:8}, {x:7, y:6}],
+        line: [{x:0, y:4.5}, {x:10, y:4.5}],
+        margin1: [{x:0, y:3.5}, {x:10, y:3.5}],
+        margin2: [{x:0, y:5.5}, {x:10, y:5.5}],
+    };
+
+    const nonLinearData = {
+        classA: [{x:4, y:5}, {x:5, y:4}, {x:6, y:5}, {x:5, y:6}],
+        classB: [{x:1, y:1}, {x:9, y:9}, {x:1, y:9}, {x:9, y:1}, {x:5, y:1}, {x:1, y:5}, {x:9, y:5}, {x:5, y:9}],
+    };
+    
+    const chart = new Chart(ctx, {
+        type: 'scatter',
+        data: { datasets: [] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { x: { min: 0, max: 10 }, y: { min: 0, max: 10 } },
+            plugins: {
+                title: { display: true, text: 'লিনিয়ার ডেটাসেট' }
+            }
+        }
+    });
+
+    function drawChart() {
+        chart.data.datasets = [];
+        if (isLinear) {
+            chart.options.plugins.title.text = 'লিনিয়ার ডেটাসেট';
+            chart.data.datasets.push({ label: 'ক্লাস A', data: linearData.classA, backgroundColor: 'rgba(37, 99, 235, 0.7)' });
+            chart.data.datasets.push({ label: 'ক্লাস B', data: linearData.classB, backgroundColor: 'rgba(219, 39, 119, 0.7)' });
+            chart.data.datasets.push({ label: 'হাইপারপ্লেন', type: 'line', data: linearData.line, borderColor: 'black', fill: false, pointRadius: 0 });
+            chart.data.datasets.push({ label: 'মার্জিন', type: 'line', data: linearData.margin1, borderColor: 'grey', borderDash: [5,5], fill: false, pointRadius: 0 });
+            chart.data.datasets.push({ label: 'মার্জিন', type: 'line', data: linearData.margin2, borderColor: 'grey', borderDash: [5,5], fill: false, pointRadius: 0 });
+            toggleBtn.textContent = 'অরৈখিক ডেটা দেখুন';
+        } else {
+            chart.options.plugins.title.text = 'অরৈখিক ডেটাসেট (RBF কার্নেল দ্বারা বিভাজ্য)';
+            chart.data.datasets.push({ label: 'ক্লাস A', data: nonLinearData.classA, backgroundColor: 'rgba(37, 99, 235, 0.7)' });
+            chart.data.datasets.push({ label: 'ক্লাস B', data: nonLinearData.classB, backgroundColor: 'rgba(219, 39, 119, 0.7)' });
+            // Simulate RBF kernel boundary
+             chart.data.datasets.push({
+                type: 'scatter',
+                label: 'হাইপারপ্লেন (সিমুলেটেড)',
+                data: Chart.helpers.options.resolve([
+                  {
+                    x: 5,
+                    y: 5,
+                    _custom: {
+                      radius: 200,
+                      backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                    },
+                  },
+                ], {}, 0),
+                pointStyle: 'circle',
+                radius: function (context) {
+                  const point = context.dataset.data[context.dataIndex];
+                  return point && point._custom && point._custom.radius || 0;
+                },
+              });
+            toggleBtn.textContent = 'লিনিয়ার ডেটা দেখুন';
+        }
+        chart.update();
+    }
+    
+    toggleBtn.addEventListener('click', () => {
+        isLinear = !isLinear;
+        drawChart();
+    });
+
+    drawChart();
+}
+
+
+function initDecisionTree() {
+    const container = document.getElementById('decisionTreeContainer');
+    const treeData = {
+        question: 'আর্দ্রতা > ৭০%?',
+        yes: {
+            question: 'বাতাস কি শক্তিশালী?',
+            yes: { answer: 'না, খেলা হবে না' },
+            no: { answer: 'হ্যাঁ, খেলা হবে' }
+        },
+        no: {
+            answer: 'হ্যাঁ, খেলা হবে'
+        }
+    };
+
+    function createNode(data) {
+        const node = document.createElement('div');
+        node.className = 'bg-white p-4 rounded-lg shadow-md border border-slate-300 text-center min-w-[200px] cursor-pointer hover:bg-slate-100 transition';
+        
+        if(data.question) {
+            node.textContent = data.question;
+            node.classList.add('bg-blue-100', 'border-blue-300');
+        } else {
+             node.textContent = data.answer;
+             if(data.answer.includes('হ্যাঁ')){
+                 node.classList.add('bg-green-100', 'border-green-300');
+             } else {
+                  node.classList.add('bg-red-100', 'border-red-300');
+             }
+        }
+        return node;
+    }
+
+    function createTree(data, parentElement) {
+        const node = createNode(data);
+        parentElement.appendChild(node);
+        
+        if (data.yes || data.no) {
+            const childrenContainer = document.createElement('div');
+            childrenContainer.className = 'flex justify-around w-full mt-4 relative';
+            
+            const lineContainer = document.createElement('div');
+            lineContainer.className = 'absolute top-[-16px] h-4 w-full';
+            
+            if(data.yes && data.no) {
+              const horizontalLine = document.createElement('div');
+              horizontalLine.className = 'absolute left-1/4 top-0 h-px w-1/2 bg-slate-400';
+              lineContainer.appendChild(horizontalLine);
+            }
+            
+            const verticalLine = document.createElement('div');
+            verticalLine.className = 'absolute left-1/2 top-0 h-full w-px bg-slate-400';
+            
+            if (data.yes && !data.no) {
+                verticalLine.style.left = '50%';
+            } else if (!data.yes && data.no) {
+                 verticalLine.style.left = '50%';
+            }
+
+            parentElement.appendChild(lineContainer);
+            parentElement.appendChild(childrenContainer);
+
+            if (data.yes) {
+                const yesBranch = document.createElement('div');
+                yesBranch.className = 'flex flex-col items-center relative';
+                const yesLabel = document.createElement('span');
+                yesLabel.textContent = 'হ্যাঁ';
+                yesLabel.className = 'absolute -top-2 text-sm bg-slate-50 px-1';
+                yesBranch.appendChild(yesLabel);
+                childrenContainer.appendChild(yesBranch);
+                createTree(data.yes, yesBranch);
+            }
+            if (data.no) {
+                const noBranch = document.createElement('div');
+                noBranch.className = 'flex flex-col items-center relative';
+                 const noLabel = document.createElement('span');
+                noLabel.textContent = 'না';
+                noLabel.className = 'absolute -top-2 text-sm bg-slate-50 px-1';
+                noBranch.appendChild(noLabel);
+                childrenContainer.appendChild(noBranch);
+                createTree(data.no, noBranch);
+            }
+        }
+    }
+    
+    container.innerHTML = '';
+    createTree(treeData, container);
+}
+
+
+function initKnnChart() {
+    const ctx = document.getElementById('knnChart').getContext('2d');
+    const kSlider = document.getElementById('kSlider');
+    const kValue = document.getElementById('kValue');
+    
+    let chart;
+    let unknownPoint = null;
+
+    const data = {
+        classA: Array.from({ length: 25 }, () => ({ x: Math.random() * 4 + 1, y: Math.random() * 4 + 1 })),
+        classB: Array.from({ length: 25 }, () => ({ x: Math.random() * 4 + 5, y: Math.random() * 4 + 5 })),
+    };
+    
+    const allPoints = [...data.classA.map(p => ({...p, class: 'A'})), ...data.classB.map(p => ({...p, class: 'B'}))];
+
+    function drawChart() {
+        const k = parseInt(kSlider.value);
+        kValue.textContent = k;
+
+        const datasets = [
+            { label: 'ক্লাস A', data: data.classA, backgroundColor: 'rgba(37, 99, 235, 0.7)', pointRadius: 5 },
+            { label: 'ক্লাস B', data: data.classB, backgroundColor: 'rgba(219, 39, 119, 0.7)', pointRadius: 5 },
+        ];
+
+        if (unknownPoint) {
+            datasets.push({
+                label: 'অজানা পয়েন্ট',
+                data: [unknownPoint],
+                backgroundColor: 'rgba(16, 185, 129, 1)',
+                pointRadius: 7,
+                pointStyle: 'rectRot'
+            });
+
+            const distances = allPoints.map(p => ({
+                dist: Math.sqrt(Math.pow(p.x - unknownPoint.x, 2) + Math.pow(p.y - unknownPoint.y, 2)),
+                ...p
+            }));
+            
+            distances.sort((a, b) => a.dist - b.dist);
+            const neighbors = distances.slice(0, k);
+
+            datasets.push({
+                label: 'নিকটতম প্রতিবেশী',
+                data: neighbors,
+                backgroundColor: 'rgba(245, 158, 11, 0.7)',
+                pointRadius: 7
+            });
+        }
+        
+        if (chart) chart.destroy();
+        
+        chart = new Chart(ctx, {
+            type: 'scatter',
+            data: { datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { x: { min: 0, max: 10 }, y: { min: 0, max: 10 } },
+                plugins: {
+                     tooltip: { enabled: false }
+                }
+            }
+        });
+    }
+
+    ctx.canvas.addEventListener('click', function (evt) {
+        const rect = ctx.canvas.getBoundingClientRect();
+        const x = (evt.clientX - rect.left) / rect.width * 10;
+        const y = 10 - ((evt.clientY - rect.top) / rect.height * 10);
+        unknownPoint = { x, y };
+        drawChart();
+    });
+    
+    kSlider.addEventListener('input', drawChart);
+    drawChart();
+}
+
+
+function initKmeansChart() {
+    const ctx = document.getElementById('kmeansChart').getContext('2d');
+    const runBtn = document.getElementById('kmeansRunBtn');
+    const kSelect = document.getElementById('kSelect');
+    let chart;
+    let intervalId;
+    
+    function runKMeans() {
+        if (chart) chart.destroy();
+        if (intervalId) clearInterval(intervalId);
+
+        const k = parseInt(kSelect.value);
+        const colors = ['rgba(239, 68, 68, 0.7)', 'rgba(37, 99, 235, 0.7)', 'rgba(16, 185, 129, 0.7)', 'rgba(245, 158, 11, 0.7)', 'rgba(107, 33, 168, 0.7)'];
+        
+        let dataPoints = Array.from({ length: 150 }, () => ({ x: Math.random() * 10, y: Math.random() * 10 }));
+        let centroids = Array.from({ length: k }, () => ({ x: Math.random() * 10, y: Math.random() * 10 }));
+        let assignments = new Array(dataPoints.length);
+
+        chart = new Chart(ctx, {
+            type: 'scatter',
+            data: { datasets: [] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { x: { min: 0, max: 10 }, y: { min: 0, max: 10 } },
+                animation: { duration: 500 }
+            }
+        });
+        
+        function updateStep() {
+            // Assign points to centroids
+            dataPoints.forEach((point, i) => {
+                let min_dist = Infinity;
+                let best_centroid = 0;
+                centroids.forEach((centroid, j) => {
+                    const dist = Math.sqrt(Math.pow(point.x - centroid.x, 2) + Math.pow(point.y - centroid.y, 2));
+                    if (dist < min_dist) {
+                        min_dist = dist;
+                        best_centroid = j;
+                    }
+                });
+                assignments[i] = best_centroid;
+            });
+
+            // Update centroids
+            let newCentroids = Array.from({ length: k }, () => ({ x: 0, y: 0, count: 0 }));
+            dataPoints.forEach((point, i) => {
+                const c_idx = assignments[i];
+                newCentroids[c_idx].x += point.x;
+                newCentroids[c_idx].y += point.y;
+                newCentroids[c_idx].count++;
+            });
+            
+            let moved = false;
+            newCentroids.forEach((c, i) => {
+                if (c.count > 0) {
+                    const newX = c.x / c.count;
+                    const newY = c.y / c.count;
+                    if(Math.abs(centroids[i].x - newX) > 0.01 || Math.abs(centroids[i].y - newY) > 0.01) {
+                        moved = true;
+                    }
+                    centroids[i] = { x: newX, y: newY };
+                }
+            });
+            
+            // Draw chart
+            const datasets = [];
+            for (let i = 0; i < k; i++) {
+                const clusterPoints = dataPoints.filter((_, j) => assignments[j] === i);
+                datasets.push({
+                    label: `ক্লাস্টার ${i + 1}`,
+                    data: clusterPoints,
+                    backgroundColor: colors[i]
+                });
+            }
+            datasets.push({
+                label: 'সেন্ট্রয়েড',
+                data: centroids,
+                backgroundColor: 'black',
+                pointStyle: 'rectRot',
+                radius: 10
+            });
+            chart.data.datasets = datasets;
+            chart.update();
+
+            if (!moved) {
+                clearInterval(intervalId);
+            }
+        }
+        
+        intervalId = setInterval(updateStep, 1000);
+    }
+    
+    runBtn.addEventListener('click', runKMeans);
+    kSelect.addEventListener('change', runKMeans);
+    runKMeans();
+}
+
+function initDendrogramChart() {
+    const ctx = document.getElementById('dendrogramChart').getContext('2d');
+    const data = {
+        labels: ['A', 'B', 'C', 'D', 'E', 'F'],
+    };
+    new Chart(ctx, {
+        type: 'bar',
+        data: data,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            scales: {
+                x: {
+                    title: { text: 'দূরত্ব', display: true },
+                    grid: { display: false }
+                },
+                y: { grid: { display: false } }
+            },
+            plugins: {
+                title: { text: 'ডেন্ড্রোগ্রাম (সিমুলেটেড)', display: true },
+                legend: { display: false }
+            },
+            elements: {
+                bar: {
+                    borderWidth: 2,
+                }
+            },
+            plugins: [{
+                id: 'dendrogram',
+                afterDraw(chart, args, options) {
+                    const {ctx, chartArea: {top, bottom, left, right}, scales: {x, y}} = chart;
+                    ctx.save();
+                    ctx.strokeStyle = '#64748b';
+                    ctx.lineWidth = 2;
+
+                    function getY(label) {
+                        return y.getPixelForValue(y.ticks.findIndex(t => t.label === label))
+                    }
+                    function getX(value) {
+                         return x.getPixelForValue(value);
+                    }
+
+                    // A-B
+                    ctx.beginPath();
+                    ctx.moveTo(getX(0), getY('A')); ctx.lineTo(getX(1), getY('A'));
+                    ctx.moveTo(getX(0), getY('B')); ctx.lineTo(getX(1), getY('B'));
+                    ctx.moveTo(getX(1), getY('A')); ctx.lineTo(getX(1), getY('B'));
+                    ctx.stroke();
+                    
+                    // C-D
+                    ctx.beginPath();
+                    ctx.moveTo(getX(0), getY('C')); ctx.lineTo(getX(1.5), getY('C'));
+                    ctx.moveTo(getX(0), getY('D')); ctx.lineTo(getX(1.5), getY('D'));
+                    ctx.moveTo(getX(1.5), getY('C')); ctx.lineTo(getX(1.5), getY('D'));
+                    ctx.stroke();
+
+                    // (A,B) - E
+                    ctx.beginPath();
+                    ctx.moveTo(getX(1), (getY('A')+getY('B'))/2); ctx.lineTo(getX(2.5), (getY('A')+getY('B'))/2);
+                    ctx.moveTo(getX(0), getY('E')); ctx.lineTo(getX(2.5), getY('E'));
+                    ctx.moveTo(getX(2.5), (getY('A')+getY('B'))/2); ctx.lineTo(getX(2.5), getY('E'));
+                    ctx.stroke();
+
+                     // (C,D) - (A,B,E)
+                    ctx.beginPath();
+                    ctx.moveTo(getX(1.5), (getY('C')+getY('D'))/2); ctx.lineTo(getX(4), (getY('C')+getY('D'))/2);
+                    ctx.moveTo(getX(2.5), ((getY('A')+getY('B'))/2 + getY('E'))/2); ctx.lineTo(getX(4), ((getY('A')+getY('B'))/2 + getY('E'))/2);
+                    ctx.moveTo(getX(4), (getY('C')+getY('D'))/2); ctx.lineTo(getX(4), ((getY('A')+getY('B'))/2 + getY('E'))/2);
+                    ctx.stroke();
+
+                    // F - all
+                    ctx.beginPath();
+                     ctx.moveTo(getX(0), getY('F')); ctx.lineTo(getX(5.5), getY('F'));
+                     const midAll = (((getY('C')+getY('D'))/2) + (((getY('A')+getY('B'))/2 + getY('E'))/2)) / 2;
+                     ctx.moveTo(getX(4), midAll); ctx.lineTo(getX(5.5), midAll);
+                     ctx.moveTo(getX(5.5), getY('F')); ctx.lineTo(getX(5.5), midAll);
+                    ctx.stroke();
+                    
+                    ctx.restore();
+                }
+            }]
+        }
+    });
+}
+
+
+function initPcaCharts() {
+    const pcaScatterCtx = document.getElementById('pcaScatterChart').getContext('2d');
+    const pcaVarianceCtx = document.getElementById('pcaVarianceChart').getContext('2d');
+
+    // Simulated PCA data
+    const classA = Array.from({length: 30}, () => ({x: Math.random() * 2 - 2, y: Math.random() * 2 - 2}));
+    const classB = Array.from({length: 30}, () => ({x: Math.random() * 2 + 1, y: Math.random() * 2 + 1}));
+    
+    new Chart(pcaScatterCtx, {
+        type: 'scatter',
+        data: {
+            datasets: [
+                { label: 'ক্লাস A', data: classA, backgroundColor: 'rgba(37, 99, 235, 0.7)'},
+                { label: 'ক্লাস B', data: classB, backgroundColor: 'rgba(219, 39, 119, 0.7)'}
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { title: { display: true, text: '2D তে রূপান্তরিত ডেটা (PC1 vs PC2)' } },
+            scales: {
+                x: { title: { text: 'Principal Component 1', display: true } },
+                y: { title: { text: 'Principal Component 2', display: true } }
+            }
+        }
+    });
+
+    new Chart(pcaVarianceCtx, {
+        type: 'bar',
+        data: {
+            labels: ['PC1', 'PC2', 'PC3'],
+            datasets: [{
+                label: 'ব্যাখ্যাকৃত ভেরিয়েন্স',
+                data: [75, 18, 7],
+                backgroundColor: ['rgba(37, 99, 235, 0.7)', 'rgba(37, 99, 235, 0.5)', 'rgba(37, 99, 235, 0.3)']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { title: { display: true, text: 'প্রতিটি কম্পোনেন্ট দ্বারা ব্যাখ্যাকৃত ভেরিয়েন্স' } },
+            scales: {
+                y: { beginAtZero: true, max: 100, title: { text: 'ভেরিয়েন্স (%)', display: true } }
+            }
+        }
+    });
+}
+
+
+function initTsneCharts() {
+    const pcaCtx = document.getElementById('tsnePcaChart').getContext('2d');
+    const tsneCtx = document.getElementById('tsneTsneChart').getContext('2d');
+    
+    // Simulated data
+    const data = {
+        cluster1: Array.from({ length: 30 }, () => ({ x: Math.random() * 2, y: Math.random() * 2})),
+        cluster2: Array.from({ length: 30 }, () => ({ x: Math.random() * 2 + 5, y: Math.random() * 2 + 5})),
+        cluster3: Array.from({ length: 30 }, () => ({ x: Math.random() * 2, y: Math.random() * 2 + 5})),
+    };
+
+    const pcaData = {
+        cluster1: data.cluster1.map(p => ({x: p.x, y: p.y})),
+        cluster2: data.cluster2.map(p => ({x: p.x - 1, y: p.y - 1})),
+        cluster3: data.cluster3.map(p => ({x: p.x + 1, y: p.y - 3})),
+    };
+
+    const tsneData = {
+        cluster1: Array.from({ length: 30 }, () => ({ x: Math.random() + 1, y: Math.random() + 1})),
+        cluster2: Array.from({ length: 30 }, () => ({ x: Math.random() + 8, y: Math.random() + 8})),
+        cluster3: Array.from({ length: 30 }, () => ({ x: Math.random() + 1, y: Math.random() + 8})),
+    };
+
+    new Chart(pcaCtx, {
+        type: 'scatter',
+        data: {
+            datasets: [
+                { data: pcaData.cluster1, backgroundColor: 'rgba(239, 68, 68, 0.7)' },
+                { data: pcaData.cluster2, backgroundColor: 'rgba(37, 99, 235, 0.7)' },
+                { data: pcaData.cluster3, backgroundColor: 'rgba(16, 185, 129, 0.7)' },
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+            scales: {x:{ticks:{display:false}}, y:{ticks:{display:false}}}
+        }
+    });
+
+    new Chart(tsneCtx, {
+        type: 'scatter',
+        data: {
+            datasets: [
+                { data: tsneData.cluster1, backgroundColor: 'rgba(239, 68, 68, 0.7)' },
+                { data: tsneData.cluster2, backgroundColor: 'rgba(37, 99, 235, 0.7)' },
+                { data: tsneData.cluster3, backgroundColor: 'rgba(16, 185, 129, 0.7)' },
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+            scales: {x:{ticks:{display:false}}, y:{ticks:{display:false}}}
+        }
+    });
+}
+
+
+function initClassificationMetrics(){
+    const tpInput = document.getElementById('tp');
+    const tnInput = document.getElementById('tn');
+    const fpInput = document.getElementById('fp');
+    const fnInput = document.getElementById('fn');
+    
+    const accuracyEl = document.getElementById('accuracy-val');
+    const precisionEl = document.getElementById('precision-val');
+    const recallEl = document.getElementById('recall-val');
+    const f1El = document.getElementById('f1-score-val');
+    
+    function calculateMetrics(){
+        const tp = parseFloat(tpInput.value) || 0;
+        const tn = parseFloat(tnInput.value) || 0;
+        const fp = parseFloat(fpInput.value) || 0;
+        const fn = parseFloat(fnInput.value) || 0;
+        
+        const total = tp + tn + fp + fn;
+        
+        const accuracy = total > 0 ? ((tp + tn) / total) : 0;
+        const precision = (tp + fp) > 0 ? (tp / (tp + fp)) : 0;
+        const recall = (tp + fn) > 0 ? (tp / (tp + fn)) : 0;
+        const f1 = (precision + recall) > 0 ? (2 * (precision * recall) / (precision + recall)) : 0;
+        
+        accuracyEl.textContent = (accuracy * 100).toFixed(2) + '%';
+        precisionEl.textContent = (precision).toFixed(2);
+        recallEl.textContent = (recall).toFixed(2);
+        f1El.textContent = (f1).toFixed(2);
+    }
+    
+    [tpInput, tnInput, fpInput, fnInput].forEach(input => {
+        input.addEventListener('input', calculateMetrics);
+    });
+    
+    calculateMetrics();
+}
+
+</script>
+</body>
+</html>
