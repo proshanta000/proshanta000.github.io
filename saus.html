@@ -87,18 +87,7 @@
             animation: float 3s infinite ease-in-out;
         }
 
-        /* Styles for the floating icon container */
-        .floating-icon-container {
-            bottom: 20px;    /* 20px from the bottom of the screen */
-            right: 20px;     /* 20px from the right of the screen */
-            z-index: 10;   /* Ensures it stays on top of other content */
-            cursor: pointer; /* Indicates it's clickable */
-            transition: transform 0.2s ease-in-out; /* Smooth hover effect */
-        }
-
-        .floating-icon-container:hover {
-            transform: translateY(-5px); /* Lift effect on hover */
-        }
+       
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -126,9 +115,9 @@
         </div>
     </div>
     </header>
-    <div class="flex flex-col md:flex-row min-h-screen">
+    <div class="flex flex-col md:flex-row min-h-screen" style="padding-top: 80px;">
         <aside id="sidebar" class="w-full md:w-64 lg:w-72 bg-white border-r border-slate-200 p-4 md:p-6 md:fixed md:h-full md:overflow-y-auto transition-transform -translate-x-full md:translate-x-0 z-20">
-            <h1 class="text-xl font-bold text-blue-800 mb-6" style="padding-top:50px">মেশিন লার্নিং গাইড</h1>
+            <h1 class="text-xl font-bold text-blue-800 mb-6">মেশিন লার্নিং গাইড</h1>
             <div style="padding-top: 30px;">
                 <h2 class="text-xl font-bold text-blue-800 mb-6" >প্রাম্ভিক ধারনাঃ</h2>
             </div>
@@ -204,10 +193,14 @@
 
             </div>
             
+            <div>
+                    <a href="Usml.html" class="nav-link text-lg font-semibold text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="Usml.html" >আনসুপারভাইজড লার্নিং</a>
+            </div>
+            
         </aside>
 
         <main class="flex-1 md:ml-64 lg:ml-72 p-4 sm:p-6 md:p-8 lg:p-10">
-            <button id="menu-toggle" class="md:hidden top-4 left-4 z-30 p-2 bg-white rounded-md border floating-icon-container">
+            <button id="menu-toggle" class="md:hidden top-4 left-4 z-30 p-2 bg-white rounded-md border ">
                 <span class="block w-6 h-0.5 bg-slate-600 mb-1"></span>
                 <span class="block w-6 h-0.5 bg-slate-600 mb-1"></span>
                 <span class="block w-6 h-0.5 bg-slate-600"></span>
@@ -593,15 +586,6 @@
     </div>
 
 <script>
-    // You can add JavaScript here to make the icon do something when clicked,
-        // for example, open a chat window or scroll to a specific section.
-        document.querySelector('.floating-icon-container').addEventListener('click', () => {
-            console.log('Floating icon clicked!');
-            // Example: Smooth scroll to top
-            // window.scrollTo({ top: 0, behavior: 'smooth' });
-            // Example: Open a modal/chat
-            // alert('This could open a chat or contact form!');
-        });
 document.addEventListener('DOMContentLoaded', function () {
     const sections = document.querySelectorAll('.content-section');
     const navLinks = document.querySelectorAll('aside nav a');
