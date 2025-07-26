@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>টেক্সট বিশ্লেষক</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font for a modern look */
+        body {
+            font-family: "Inter", sans-serif;
+        }
+        /* Basic styling for the main container */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        /* Hide loading spinner by default */
+        #loadingSpinner, #historyLoadingSpinner {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900 min-h-screen flex items-center justify-center">
+    <div class="container bg-white shadow-lg rounded-xl p-8 space-y-6 border border-gray-200">
+        <h1 class="text-4xl font-extrabold text-center text-blue-700 mb-8">টেক্সট বিশ্লেষক</h1>
+
+        <p class="text-lg text-gray-700 text-center mb-6">
+            নিচে যেকোনো লেখা লিখুন, এবং আমাদের NLP মডেল এর সত্যতা (সম্ভাব্য সত্য/মিথ্যা) এবং স্বাভাবিকতা (স্বাভাবিক/অস্বাভাবিক/সন্দেহজনক) মূল্যায়ন করার চেষ্টা করবে।
+            <br><span class="text-sm text-gray-500">(মূল্যায়ন মডেলের প্রশিক্ষণ ডেটা এবং সাধারণ জ্ঞানের উপর ভিত্তি করে।)</span>
+        </p>
+
+        <div class="mb-6">
+            <label for="textInput" class="block text-lg font-semibold text-gray-800 mb-2">লেখা লিখুন:</label>
+            <textarea
+                id="textInput"
+                rows="8"
+                class="w-full p-4 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 placeholder-gray-400 resize-y"
+                placeholder="আপনার লেখা এখানে টাইপ করুন, যেমন: 'আকাশ সবুজ।' অথবা 'আমি একটি উড়ন্ত কুকুর খুঁজে পেয়েছি যা কথা বলতে পারে।'"
+            ></textarea>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-4 mb-6">
+            <button
+                id="analyzeButton"
+                class="w-full sm:w-1/2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75"
+            >
+                লেখা বিশ্লেষণ করুন
+            </button>
+            <button
+                id="clearButton"
+                class="w-full sm:w-1/2 bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-75"
+            >
+                লেখা পরিষ্কার করুন
+            </button>
+        </div>
+
+        <div id="loadingSpinner" class="text-center mt-6">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-500 mx-auto"></div>
+            <p class="text-blue-600 mt-2">বিশ্লেষণ হচ্ছে...</p>
+        </div>
+
+        <div id="results" class="mt-8 p-6 bg-blue-50 rounded-lg border border-blue-200 shadow-inner hidden">
+            <h2 class="text-2xl font-bold text-blue-800 mb-4">বিশ্লেষণের ফলাফল:</h2>
+            <p class="text-xl text-gray-800 mb-2">
+                <strong>সত্যতা:</strong> <span id="isTrueResult" class="font-semibold"></span>
+            </p>
+            <p class="text-xl text-gray-800">
+                <strong>স্বাভাবিকতা:</strong> <span id="normalityResult" class="font-semibold"></span>
+            </p>
+            <button
+                id="copyResultsButton"
+                class="mt-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-75"
+            >
+                ফলাফল কপি করুন
+            </button>
+            <div id="copyMessage" class="text-green-600 text-sm mt-2 hidden"></div>
+        </div>
+
+        <div id="errorMessage" class="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg hidden">
+            <p class="font-semibold">ত্রুটি:</p>
+            <p id="errorText"></p>
+        </div>
+
+        <hr class="my-8 border-t-2 border-gray-200">
+
+        <!-- History Section -->
+        <div class="mt-8">
+            <h2 class="text-3xl font-extrabold text-center text-blue-700 mb-6">বিশ্লেষণের ইতিহাস দেখুন</h2>
+            <p class="text-gray-600 text-center mb-4">আপনার পূর্ববর্তী বিশ্লেষণের ফলাফল দেখতে পাসওয়ার্ড লিখুন।</p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
+                <input
+                    type="password"
+                    id="passwordInput"
+                    class="flex-grow w-full sm:w-auto p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 placeholder-gray-400"
+                    placeholder="পাসওয়ার্ড লিখুন"
+                />
+                <button
+                    id="viewHistoryButton"
+                    class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75"
+                >
+                    ইতিহাস দেখুন
+                </button>
+            </div>
+            <div id="passwordErrorMessage" class="mt-2 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg hidden">
+                <p id="passwordErrorText"></p>
+            </div>
+
+            <div id="historyLoadingSpinner" class="text-center mt-6">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-green-500 mx-auto"></div>
+                <p class="text-green-600 mt-2">ইতিহাস লোড হচ্ছে...</p>
+            </div>
+
+            <div id="analysisHistory" class="mt-8 p-6 bg-gray-50 rounded-lg border border-gray-200 shadow-inner hidden">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">আপনার পূর্ববর্তী বিশ্লেষণসমূহ:</h3>
+                <div id="historyList" class="space-y-4">
+                    <!-- History items will be dynamically added here -->
+                    <p class="text-gray-600 text-center" id="noHistoryMessage">এই ব্যবহারকারীর জন্য কোনো বিশ্লেষণের ইতিহাস পাওয়া যায়নি।</p>
+                </div>
+            </div>
+        </div>
+        <p class="text-sm text-gray-500 text-center mt-4">
+            আপনার ব্যবহারকারী আইডি: <span id="userIdDisplay" class="font-mono text-gray-700 break-all">লোড হচ্ছে...</span>
+        </p>
+    </div>
+
+    <script type="module">
+        // Firebase imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firebase variables (will be initialized in DOMContentLoaded)
+        let app;
+        let db;
+        let auth;
+        let userId;
+
+        // Configuration for the secret password (for demonstration purposes only)
+        const SECRET_PASSWORD = "password"; // !!! গুরুত্বপূর্ণ: একটি বাস্তব অ্যাপে, পাসওয়ার্ড এভাবে হার্ডকোড করবেন না।
+
+        // Bangla Translations
+        const translations = {
+            analyzeText: "লেখা বিশ্লেষণ করুন",
+            clearText: "লেখা পরিষ্কার করুন",
+            copyResults: "ফলাফল কপি করুন",
+            analysisResults: "বিশ্লেষণের ফলাফল:",
+            truthfulness: "সত্যতা:",
+            normality: "স্বাভাবিকতা:",
+            true: "সত্য",
+            false: "মিথ্যা",
+            normal: "স্বাভাবিক",
+            unusual: "অস্বাভাবিক",
+            suspicious: "সন্দেহজনক",
+            error: "ত্রুটি:",
+            enterTextPrompt: "বিশ্লেষণের জন্য কিছু লেখা লিখুন।",
+            userNotAuthenticated: "ব্যবহারকারী প্রমাণীকৃত নয়। অনুগ্রহ করে Firebase শুরু হওয়ার জন্য অপেক্ষা করুন।",
+            apiError: "এপিআই ত্রুটি:",
+            unexpectedApiResponse: "অপ্রত্যাশিত এপিআই প্রতিক্রিয়া কাঠামো। অনুগ্রহ করে আবার চেষ্টা করুন।",
+            failedToAnalyze: "লেখা বিশ্লেষণ করতে ব্যর্থ হয়েছে:",
+            viewHistory: "ইতিহাস দেখুন",
+            incorrectPassword: "ভুল পাসওয়ার্ড।",
+            loadingHistory: "ইতিহাস লোড হচ্ছে...",
+            yourPastAnalyses: "আপনার পূর্ববর্তী বিশ্লেষণসমূহ:",
+            noHistoryFound: "এই ব্যবহারকারীর জন্য কোনো বিশ্লেষণের ইতিহাস পাওয়া যায়নি।",
+            firebaseSetupFailed: "Firebase সেটআপ ব্যর্থ হয়েছে:",
+            loading: "লোড হচ্ছে...",
+            analysisCopied: "বিশ্লেষণের ফলাফল ক্লিপবোর্ডে কপি করা হয়েছে!",
+            failedToCopy: "ফলাফল কপি করতে ব্যর্থ হয়েছে।"
+        };
+
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const textInput = document.getElementById('textInput');
+            const analyzeButton = document.getElementById('analyzeButton');
+            const clearButton = document.getElementById('clearButton'); // New clear button
+            const copyResultsButton = document.getElementById('copyResultsButton'); // New copy button
+            const copyMessage = document.getElementById('copyMessage'); // New copy message element
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const resultsDiv = document.getElementById('results');
+            const isTrueResultSpan = document.getElementById('isTrueResult');
+            const normalityResultSpan = document.getElementById('normalityResult');
+            const errorMessageDiv = document.getElementById('errorMessage');
+            const errorTextSpan = document.getElementById('errorText');
+
+            const passwordInput = document.getElementById('passwordInput');
+            const viewHistoryButton = document.getElementById('viewHistoryButton');
+            const passwordErrorMessageDiv = document.getElementById('passwordErrorMessage');
+            const passwordErrorTextSpan = document.getElementById('passwordErrorText');
+            const historyLoadingSpinner = document.getElementById('historyLoadingSpinner');
+            const analysisHistoryDiv = document.getElementById('analysisHistory');
+            const historyListDiv = document.getElementById('historyList');
+            const noHistoryMessage = document.getElementById('noHistoryMessage');
+            const userIdDisplay = document.getElementById('userIdDisplay');
+
+            // --- Firebase Initialization ---
+            try {
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+                if (Object.keys(firebaseConfig).length === 0) {
+                    throw new Error("Firebase কনফিগারেশন পাওয়া যায়নি। Firestore শুরু করা যাবে না।");
+                }
+
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Authenticate the user
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Listen for auth state changes to get the user ID
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        userIdDisplay.textContent = userId;
+                        console.log("Firebase শুরু হয়েছে। ব্যবহারকারী আইডি:", userId);
+                    } else {
+                        userId = null;
+                        userIdDisplay.textContent = translations.loading; // "লোড হচ্ছে..."
+                        console.log("Firebase শুরু হয়েছে, কিন্তু কোনো ব্যবহারকারী প্রমাণীকৃত নয়।");
+                    }
+                });
+
+            } catch (firebaseError) {
+                console.error("Firebase শুরু করতে ব্যর্থ হয়েছে:", firebaseError);
+                showError(`${translations.firebaseSetupFailed} ${firebaseError.message}`);
+                analyzeButton.disabled = true;
+                viewHistoryButton.disabled = true;
+                userIdDisplay.textContent = translations.error;
+                return; // Stop execution if Firebase fails to initialize
+            }
+            // --- End Firebase Initialization ---
+
+            analyzeButton.addEventListener('click', analyzeText);
+            clearButton.addEventListener('click', clearText); // Add event listener for clear button
+            copyResultsButton.addEventListener('click', copyResults); // Add event listener for copy button
+            viewHistoryButton.addEventListener('click', viewHistory);
+
+            async function analyzeText() {
+                const text = textInput.value.trim();
+
+                // Clear previous results and errors
+                resultsDiv.classList.add('hidden');
+                errorMessageDiv.classList.add('hidden');
+                errorTextSpan.textContent = '';
+                isTrueResultSpan.textContent = '';
+                normalityResultSpan.textContent = '';
+                copyMessage.classList.add('hidden'); // Hide copy message
+
+                if (!text) {
+                    showError(translations.enterTextPrompt);
+                    return;
+                }
+                if (!userId) {
+                    showError(translations.userNotAuthenticated);
+                    return;
+                }
+
+                loadingSpinner.style.display = 'block'; // Show spinner
+                analyzeButton.disabled = true; // Disable button during analysis
+                clearButton.disabled = true; // Disable clear button
+                copyResultsButton.disabled = true; // Disable copy button
+
+                try {
+                    // Define the prompt for the LLM, explicitly mentioning Bangla text
+                    const prompt = `অনুগ্রহ করে নিম্নলিখিত বাংলা লেখাটির সত্যতা এবং স্বাভাবিকতা বিশ্লেষণ করুন।
+সত্যতা: সাধারণ জ্ঞানের উপর ভিত্তি করে এই বিবৃতিটি কি সত্য নাকি মিথ্যা? 'true' অথবা 'false' দিয়ে উত্তর দিন।
+স্বাভাবিকতা: বিষয়বস্তুটি কি সাধারণ যোগাযোগের জন্য স্বাভাবিক, অস্বাভাবিক, নাকি সম্ভাব্য সন্দেহজনক? 'normal', 'unusual', অথবা 'suspicious' দিয়ে উত্তর দিন।
+
+আপনার মূল্যায়ন একটি JSON অবজেক্টে দিন, যেখানে 'isTrue' (বুলিয়ান) এবং 'normality' (স্ট্রিং) কী থাকবে।
+
+লেখা: ${text}`;
+
+                    let chatHistory = [];
+                    chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+                    const payload = {
+                        contents: chatHistory,
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    "isTrue": { "type": "BOOLEAN" },
+                                    "normality": { "type": "STRING", "enum": ["normal", "unusual", "suspicious"] }
+                                },
+                                required: ["isTrue", "normality"]
+                            }
+                        }
+                    };
+
+                    const apiKey = ""; // API key is provided by the Canvas environment automatically
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`${translations.apiError} ${response.status} - ${errorData.error.message || 'Unknown error'}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+
+                        const jsonString = result.candidates[0].content.parts[0].text;
+                        const parsedJson = JSON.parse(jsonString);
+
+                        // Display results with Bangla translations
+                        isTrueResultSpan.textContent = parsedJson.isTrue ? translations.true : translations.false;
+                        isTrueResultSpan.className = parsedJson.isTrue ? 'text-green-700 font-bold' : 'text-red-700 font-bold';
+
+                        let translatedNormality;
+                        if (parsedJson.normality === 'normal') {
+                            translatedNormality = translations.normal;
+                            normalityResultSpan.className = 'text-green-700 font-bold';
+                        } else if (parsedJson.normality === 'unusual') {
+                            translatedNormality = translations.unusual;
+                            normalityResultSpan.className = 'text-yellow-700 font-bold';
+                        } else if (parsedJson.normality === 'suspicious') {
+                            translatedNormality = translations.suspicious;
+                            normalityResultSpan.className = 'text-red-700 font-bold';
+                        } else {
+                            translatedNormality = parsedJson.normality; // Fallback if unexpected value
+                            normalityResultSpan.className = 'text-gray-700 font-bold';
+                        }
+                        normalityResultSpan.textContent = translatedNormality;
+
+                        resultsDiv.classList.remove('hidden');
+
+                        // --- Save result to Firestore ---
+                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                        const historyCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/analysis_history`);
+                        await addDoc(historyCollectionRef, {
+                            text: text,
+                            isTrue: parsedJson.isTrue,
+                            normality: parsedJson.normality, // Store English value, translate on display
+                            timestamp: new Date()
+                        });
+                        console.log("বিশ্লেষণের ফলাফল Firestore এ সংরক্ষণ করা হয়েছে।");
+                        // --- End Save to Firestore ---
+
+                    } else {
+                        showError(translations.unexpectedApiResponse);
+                    }
+
+                } catch (error) {
+                    console.error("Analysis failed:", error);
+                    showError(`${translations.failedToAnalyze} ${error.message}`);
+                } finally {
+                    loadingSpinner.style.display = 'none'; // Hide spinner
+                    analyzeButton.disabled = false; // Re-enable button
+                    clearButton.disabled = false; // Re-enable clear button
+                    copyResultsButton.disabled = false; // Re-enable copy button
+                }
+            }
+
+            function clearText() {
+                textInput.value = '';
+                resultsDiv.classList.add('hidden');
+                errorMessageDiv.classList.add('hidden');
+                copyMessage.classList.add('hidden');
+                errorTextSpan.textContent = '';
+                isTrueResultSpan.textContent = '';
+                normalityResultSpan.textContent = '';
+            }
+
+            async function copyResults() {
+                const truthfulness = isTrueResultSpan.textContent;
+                const normality = normalityResultSpan.textContent;
+                const textToCopy = `সত্যতা: ${truthfulness}\nস্বাভাবিকতা: ${normality}`;
+
+                try {
+                    // Using document.execCommand for better compatibility in iframes
+                    const textarea = document.createElement('textarea');
+                    textarea.value = textToCopy;
+                    textarea.style.position = 'fixed'; // Avoid scrolling to bottom
+                    textarea.style.left = '-9999px'; // Move off-screen
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+
+                    copyMessage.textContent = translations.analysisCopied;
+                    copyMessage.classList.remove('hidden');
+                    setTimeout(() => copyMessage.classList.add('hidden'), 3000); // Hide after 3 seconds
+                } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                    copyMessage.textContent = translations.failedToCopy;
+                    copyMessage.classList.remove('hidden');
+                    copyMessage.classList.add('text-red-600'); // Indicate error
+                    setTimeout(() => {
+                        copyMessage.classList.add('hidden');
+                        copyMessage.classList.remove('text-red-600');
+                    }, 3000);
+                }
+            }
+
+
+            async function viewHistory() {
+                const enteredPassword = passwordInput.value.trim();
+
+                passwordErrorMessageDiv.classList.add('hidden');
+                passwordErrorTextSpan.textContent = '';
+                analysisHistoryDiv.classList.add('hidden');
+                historyListDiv.innerHTML = ''; // Clear previous history
+
+                if (enteredPassword !== SECRET_PASSWORD) {
+                    passwordErrorTextSpan.textContent = translations.incorrectPassword;
+                    passwordErrorMessageDiv.classList.remove('hidden');
+                    return;
+                }
+
+                if (!userId) {
+                    passwordErrorTextSpan.textContent = translations.userNotAuthenticated;
+                    passwordErrorMessageDiv.classList.remove('hidden');
+                    return;
+                }
+
+                historyLoadingSpinner.style.display = 'block';
+                viewHistoryButton.disabled = true;
+                passwordInput.disabled = true;
+
+                try {
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                    const historyCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/analysis_history`);
+                    const q = query(historyCollectionRef, orderBy('timestamp', 'desc')); // Order by timestamp descending
+
+                    // Use onSnapshot for real-time updates
+                    onSnapshot(q, (snapshot) => {
+                        historyListDiv.innerHTML = ''; // Clear existing list before re-rendering
+                        if (snapshot.empty) {
+                            historyListDiv.appendChild(noHistoryMessage);
+                            noHistoryMessage.classList.remove('hidden');
+                        } else {
+                            noHistoryMessage.classList.add('hidden');
+                            snapshot.forEach((doc) => {
+                                const data = doc.data();
+                                const historyItem = document.createElement('div');
+                                historyItem.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200';
+
+                                // Translate normality for display
+                                let translatedNormality;
+                                if (data.normality === 'normal') {
+                                    translatedNormality = translations.normal;
+                                } else if (data.normality === 'unusual') {
+                                    translatedNormality = translations.unusual;
+                                } else if (data.normality === 'suspicious') {
+                                    translatedNormality = translations.suspicious;
+                                } else {
+                                    translatedNormality = data.normality;
+                                }
+
+                                historyItem.innerHTML = `
+                                    <p class="text-sm text-gray-500 mb-1">${new Date(data.timestamp.toDate()).toLocaleString('bn-BD')}</p>
+                                    <p class="text-gray-900 font-medium mb-2 break-words"><strong>লেখা:</strong> ${data.text}</p>
+                                    <p class="text-md">
+                                        <strong>${translations.truthfulness}</strong> <span class="${data.isTrue ? 'text-green-700' : 'text-red-700'} font-bold">${data.isTrue ? translations.true : translations.false}</span>
+                                    </p>
+                                    <p class="text-md">
+                                        <strong>${translations.normality}</strong> <span class="${
+                                            data.normality === 'normal' ? 'text-green-700' :
+                                            data.normality === 'unusual' ? 'text-yellow-700' :
+                                            data.normality === 'suspicious' ? 'text-red-700' : 'text-gray-700'
+                                        } font-bold">${translatedNormality}</span>
+                                    </p>
+                                `;
+                                historyListDiv.appendChild(historyItem);
+                            });
+                        }
+                        analysisHistoryDiv.classList.remove('hidden');
+                        historyLoadingSpinner.style.display = 'none';
+                        viewHistoryButton.disabled = false;
+                        passwordInput.disabled = false;
+                    }, (error) => {
+                        console.error("ইতিহাস আনতে ত্রুটি:", error);
+                        passwordErrorTextSpan.textContent = `${translations.error} ${error.message}`;
+                        passwordErrorMessageDiv.classList.remove('hidden');
+                        historyLoadingSpinner.style.display = 'none';
+                        viewHistoryButton.disabled = false;
+                        passwordInput.disabled = false;
+                    });
+
+                } catch (error) {
+                    console.error("ইতিহাস দেখতে ব্যর্থ হয়েছে:", error);
+                    passwordErrorTextSpan.textContent = `${translations.failedToAnalyze} ${error.message}`;
+                    passwordErrorMessageDiv.classList.remove('hidden');
+                } finally {
+                    // onSnapshot handles hiding spinner and re-enabling button on initial load and subsequent updates
+                    // So, we only need to ensure they are re-enabled if there's an error before onSnapshot is set up.
+                    if (!analysisHistoryDiv.classList.contains('hidden')) { // If history is not yet visible, means error occurred before snapshot
+                        historyLoadingSpinner.style.display = 'none';
+                        viewHistoryButton.disabled = false;
+                        passwordInput.disabled = false;
+                    }
+                }
+            }
+
+            function showError(message) {
+                errorTextSpan.textContent = message;
+                errorMessageDiv.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
