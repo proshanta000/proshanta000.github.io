@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Cheatsheet</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- jsPDF and html2canvas CDN for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Custom styles for the Inter font -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Noto+Sans+Bengali:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', 'Noto Sans Bengali', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-color: #f3f4f6;
+        }
+        .table-container {
+            overflow-x: auto;
+            max-width: 100%;
+        }
+        .table-wrapper {
+            min-width: 1200px; /* Minimum width to prevent content from being too squeezed */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="max-w-7xl mx-auto p-4 md:p-8">
+        <!-- Header Section -->
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-teal-600 mb-2">মেশিন লার্নিং চিটশিট</h1>
+            <p class="text-lg text-gray-600">বিভিন্ন মেশিন লার্নিং অ্যালগরিদম ও তাদের বৈশিষ্ট্য</p>
+        </header>
+
+        <!-- Download Button -->
+        <div class="flex justify-end mb-4">
+            <button id="downloadPdfBtn" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300">
+                PDF ডাউনলোড করুন
+            </button>
+        </div>
+
+        <!-- Main Table Container -->
+        <div id="tableToDownload" class="bg-white rounded-lg shadow-lg overflow-hidden border-2 border-gray-200">
+            <div class="table-container">
+                <table id="mlTable" class="table-wrapper divide-y divide-gray-200 w-full">
+                    <thead class="bg-gradient-to-r from-teal-500 to-cyan-600 sticky top-0">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">অ্যালগরিদম</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Algorithm Type</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Supervised/Unsupervised</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">বর্ণনা (Description)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">ব্যবহার ক্ষেত্র (Use Cases)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">সুবিধা (Advantages)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">অসুবিধা (Disadvantages)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200 text-sm">
+                        <!-- Supervised Learning -->
+                        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">Linear Regression</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Linear Models</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Supervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">একটি সহজ অ্যালগরিদম যা ইনপুট এবং একটি অবিচ্ছিন্ন সংখ্যাসূচক আউটপুট ভেরিয়েবলের মধ্যে একটি রৈখিক সম্পর্ক মডেল করে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. শেয়ারের দামের পূর্বাভাস ২. বাড়ির দামের পূর্বাভাস ৩. গ্রাহকের জীবনকাল মূল্যের পূর্বাভাস</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. ব্যাখ্যামূলক পদ্ধতি ২. এর আউটপুট সহগ দ্বারা ব্যাখ্যাযোগ্য ফলাফল ৩. অন্যান্য মেশিন লার্নিং মডেলের তুলনায় প্রশিক্ষণে দ্রুত</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. ইনপুট এবং আউটপুটের মধ্যে রৈখিকতা অনুমান করে ২. আউটলায়ারের প্রতি সংবেদনশীল ৩. ছোট, উচ্চ-মাত্রিক ডেটা দিয়ে আন্ডারফিট হতে পারে</td>
+                        </tr>
+                        <tr class="bg-gray-50 hover:bg-gray-100 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">Logistic Regression</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Linear Models</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Supervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">একটি সহজ অ্যালগরিদম যা ইনপুট এবং একটি শ্রেণীবদ্ধ আউটপুটের মধ্যে একটি রৈখিক সম্পর্ক মডেল করে (১ বা ০)</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. ক্রেডিট ঝুঁকি স্কোরের পূর্বাভাস ২. গ্রাহক টার্নআউটের পূর্বাভাস</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. ব্যাখ্যামূলক এবং ব্যাখ্যাযোগ্য ২. নিয়মিতকরণ ব্যবহার করার সময় ওভারফিটিংয়ের প্রবণতা কম ৩. বহু-শ্রেণীর পূর্বাভাসের জন্য প্রযোজ্য</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. ইনপুট এবং আউটপুটের মধ্যে রৈখিকতা অনুমান করে ২. ছোট, উচ্চ-মাত্রিক ডেটা দিয়ে ওভারফিট হতে পারে</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">Ridge Regression</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Linear Models</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Supervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">রিগ্রেশন পরিবারের একটি অংশ, এটি সেই বৈশিষ্ট্যগুলিকে শাস্তি দেয় যাদের পূর্বাভাস কম, তাদের সহগ শূন্যের কাছাকাছি সংকুচিত করে। এটি শ্রেণীকরণ বা রিগ্রেশনের জন্য ব্যবহার করা যেতে পারে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. গাড়ির জন্য রক্ষণাবেক্ষণের পূর্বাভাস ২. বিক্রয় রাজস্বের পূর্বাভাস</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. ওভারফিটিংয়ের প্রবণতা কম ২. যেখানে ডেটা মাল্টিকোলিনিয়ারিটিতে ভোগে সেখানে সবচেয়ে উপযুক্ত ৩. ব্যাখ্যামূলক ও ব্যাখ্যাযোগ্য</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. সমস্ত পূর্বাভাসকারী চূড়ান্ত মডেলে রাখা হয় ২. বৈশিষ্ট্য নির্বাচন করে না</td>
+                        </tr>
+                        <tr class="bg-gray-50 hover:bg-gray-100 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">Lasso Regression</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Linear Models</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Supervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">রিগ্রেশন পরিবারের একটি অংশ, এটি সেই বৈশিষ্ট্যগুলিকে শাস্তি দেয় যাদের পূর্বাভাস কম, তাদের সহগ শূন্যে সংকুচিত করে। এটি শ্রেণীকরণ বা রিগ্রেশনের জন্য ব্যবহার করা যেতে পারে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. বাড়ির দামের পূর্বাভাস ২. স্বাস্থ্যের ডেটার উপর ভিত্তি করে ক্লিনিকাল ফলাফলের পূর্বাভাস</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. ওভারফিটিংয়ের প্রবণতা কম ২. উচ্চ-মাত্রিক ডেটা পরিচালনা করতে পারে ৩. বৈশিষ্ট্য নির্বাচনের প্রয়োজন নেই</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. এটি অত্যন্ত সম্পর্কযুক্ত ভেরিয়েবল রাখতে পারে বলে দুর্বল ব্যাখ্যাযোগ্যতার দিকে নিয়ে যেতে পারে</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">Naive Bayes</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Linear Models</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Supervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">সম্ভাবনার উপর ভিত্তি করে কাজ করে প্রতিটি ফিচার স্বাধীন ধরে নেয়</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">স্প্যাম ফিল্টারিং, সেন্টিমেন্ট অ্যানালাইসিস</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">খুব দ্রুত ও সহজ, ভালো পারফর্ম করে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">ফিচার ইন্ডিপেন্ডেন্ট হওয়া দরকার</td>
+                        </tr>
+                        <tr class="bg-gray-50 hover:bg-gray-100 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">K-Nearest Neighbors (KNN)</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Linear Models</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Supervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">প্রতিবেশী ডেটা ব্যবহার করে প্রেডিকশন করে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">হ্যান্ডরাইটিং রিকগনিশন, রিকমেন্ডেশন</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">সহজ ও শক্তিশালী, কোনো ট্রেনিং লাগে না</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">স্লো, বড় ডেটাতে পারফরম্যান্স খারাপ</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">Decision Tree</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Tree-Based Models</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Supervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">ডিসিশন ট্রি মডেলগুলি পূর্বাভাস তৈরি করতে বৈশিষ্ট্যগুলিতে সিদ্ধান্তের নিয়ম তৈরি করে। এটি শ্রেণীকরণ বা রিগ্রেশনের জন্য ব্যবহার করা যেতে পারে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. গ্রাহক টার্নআউটের পূর্বাভাস ২. ক্রেডিট স্কোর মডেলিং ৩. রোগের পূর্বাভাস</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. ব্যাখ্যামূলক এবং ব্যাখ্যাযোগ্য ২. অনুপস্থিত ডেটা পরিচালনা করতে পারে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. ওভারফিটিংয়ের প্রবণতা বেশি ২. আউটলায়ারের প্রতি সংবেদনশীল</td>
+                        </tr>
+                        <tr class="bg-gray-50 hover:bg-gray-100 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">Random Forest</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Tree-Based Models</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Supervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">একটি এনসেম্বল লার্নিং পদ্ধতি যা একাধিক ডিসিশন ট্রির আউটপুটকে একত্রিত করে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. ক্রেডিট স্কোর মডেলিং ২. বাড়ির দামের পূর্বাভাস</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. ওভারফিটিং কমায় ২. অন্যান্য মডেলের তুলনায় উচ্চতর নির্ভুলতা</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. প্রশিক্ষণের জটিলতা বেশি হতে পারে ২. খুব বেশি ব্যাখ্যাযোগ্য নয়</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">Gradient Boosting Regression</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Tree-Based Models</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Supervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">গ্রেডিয়েন্ট বুস্টিং রিগ্রেশন দুর্বল পূর্বাভাস প্রদানকারী লার্নারদের একটি এনসেম্বল থেকে পূর্বাভাসমূলক মডেল তৈরি করতে বুস্টিং ব্যবহার করে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. গাড়ির নির্গমনের পূর্বাভাস ২. রাইড হেলিং ভাড়ার পরিমাণের পূর্বাভাস</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. অন্যান্য রিগ্রেশন মডেলের তুলনায় আরও ভালো নির্ভুলতা ২. এটি মাল্টিকোলিনিয়ারিটি পরিচালনা করতে পারে ৩. এটি অ-রৈখিক সম্পর্ক পরিচালনা করতে পারে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. আউটলায়ারের প্রতি সংবেদনশীল এবং তাই ওভারফিটিং হতে পারে ২. গণনার দিক থেকে ব্যয়বহুল এবং উচ্চ জটিলতা আছে</td>
+                        </tr>
+                        <tr class="bg-gray-50 hover:bg-gray-100 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">XGBoost</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Tree-Based Models</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Supervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">গ্রেডিয়েন্ট বুস্টিং অ্যালগরিদম যা দক্ষ এবং নমনীয়। এটি শ্রেণীকরণ এবং রিগ্রেশন উভয় কাজের জন্যই ব্যবহার করা যেতে পারে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. টার্নআউটের পূর্বাভাস ২. বীমাতে দাবির প্রক্রিয়াকরণ</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. সঠিক ফলাফল প্রদান করে ২. অ-রৈখিক সম্পর্ক ক্যাপচার করে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. হাইপারপ্যারামিটার টিউনিং জটিল হতে পারে ২. স্পার্স ডেটাসেটে ভালো পারফর্ম করে না</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">LightGBM Regressor</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Tree-Based Models</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Supervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">একটি গ্রেডিয়েন্ট বুস্টিং ফ্রেমওয়ার্ক যা অন্যান্য বাস্তবায়নের চেয়ে বেশি দক্ষ হওয়ার জন্য ডিজাইন করা হয়েছে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. এয়ারলাইন্সের জন্য ফ্লাইটের সময়ের পূর্বাভাস ২. স্বাস্থ্যের ডেটার উপর ভিত্তি করে কোলেস্টেরলের মাত্রার পূর্বাভাস</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. প্রচুর পরিমাণে ডেটা পরিচালনা করতে পারে ২. গণনার দিক থেকে দক্ষ এবং দ্রুত প্রশিক্ষণের গতি ৩. কম মেমরি ব্যবহার করে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. লিফ-ওয়াইজ স্লিটিং এবং উচ্চ সংবেদনশীলতার কারণে ওভারফিট হতে পারে ২. হাইপারপ্যারামিটার টিউনিং জটিল হতে পারে</td>
+                        </tr>
+                        <tr class="bg-gray-50 hover:bg-gray-100 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">AdaBoost</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Tree-Based Models</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Supervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">দুর্বল লার্নারকে একত্র করে শক্তিশালী মডেল তৈরি</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">ফ্রড ডিটেকশন, ক্লেইম রিকগনিশন</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">ওভারফিটিং কম, ব্যাখ্যাযোগ্য</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">আউটলায়ারে সংবেদনশীল, স্লো</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">CatBoost</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Tree-Based Models</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Supervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">ক্যাটেগরিক্যাল ডেটা হ্যান্ডেল করার জন্য উন্নত গ্রেডিয়েন্ট বুস্টিং</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">ব্যাঙ্কিং, মার্কেটিং, হেলথ</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">অটোমেটিক ক্যাট ফিচার হ্যান্ডেল করে, উচ্চ নির্ভুলতা</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">ট্রেনিং ধীর, টিউনিং দরকার</td>
+                        </tr>
+                        <tr class="bg-gray-50 hover:bg-gray-100 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">Support Vector Machine (SVM)</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Linear Models</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Supervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">হাইপারপ্লেন দিয়ে ক্লাস আলাদা করে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">ইমেজ ক্লাসিফিকেশন, টেক্সট ক্যাটেগরাইজেশন</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">হাই-ডাইমেনশন ভালোভাবে হ্যান্ডেল করে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">বড় ডেটাসেটে ধীর এবং কম মেমরি দক্ষ</td>
+                        </tr>
+                        <!-- Unsupervised Learning -->
+                        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">Principal Component Analysis (PCA)</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Clustering</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Unsupervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">ডেটার মাত্রা কমায়, ইনফরমেশন ধরে রেখে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">ইমেজ কম্প্রেশন, ভিজ্যুয়ালাইজেশন</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">হাই-ডাইমেনশন হ্যান্ডেল করে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">ইন্টারপ্রেট করা কঠিন, কিছু তথ্য হারায়</td>
+                        </tr>
+                        <tr class="bg-gray-50 hover:bg-gray-100 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">K-Means</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Clustering</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Unsupervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">কে-মিনস হল সর্বাধিক ব্যবহৃত ক্লাস্টারিং পদ্ধতি এটি ইউক্লিডিয়ান দূরত্বের উপর ভিত্তি করে K সংখ্যক ক্লাস্টার নির্ধারণ করে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. গ্রাহক বিভাজন ২. সুপারিশ সিস্টেম</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. বড় ডেটাসেটে স্কেল করে ২. বাস্তবায়ন এবং ব্যাখ্যা করা সহজ ৩. টাইট ক্লাস্টার তৈরি করে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. শুরু থেকেই ক্লাস্টারের প্রত্যাশিত সংখ্যা প্রয়োজন ২. ক্লাস্টারের আকার এবং ঘনত্বের তারতম্যের সঙ্গে সমস্যা হয়</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">Hierarchical Clustering</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Clustering</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Unsupervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">একটি 'বটম-আপ' পদ্ধতি যেখানে প্রতিটি ডেটা পয়েন্টকে তার নিজস্ব ক্লাস্টার হিসাবে বিবেচনা করা হয় এবং তারপর দুটি সবচেয়ে কাছের ক্লাস্টারকে পুনরাবৃত্তিমূলকভাবে একত্রিত করা হয়</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. জালিয়াতি সনাক্তকরণ ২. সাদৃশ্যের উপর ভিত্তি করে ডকুমেন্ট ক্লাস্টারিং</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. ক্লাস্টারের সংখ্যা নির্দিষ্ট করার প্রয়োজন নেই ২. ফলস্বরূপ ডেনড্রোগ্রাম তথ্যপূর্ণ</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. সর্বদা সেরা ক্লাস্টারিং ফলাফল দেয় না ২. উচ্চ জটিলতার কারণে বড় ডেটাসেটের জন্য উপযুক্ত নয়</td>
+                        </tr>
+                        <tr class="bg-gray-50 hover:bg-gray-100 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">Gaussian Mixture Model</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Clustering</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Unsupervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">একটি ডেটাসেটের মধ্যে স্বাভাবিকভাবে বিতরণ করা ক্লাস্টারগুলি মডেল করার জন্য একটি সম্ভাবনামূলক মডেল</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. গ্রাহক বিভাজন ২. সুপারিশ সিস্টেম</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. একটি পর্যবেক্ষণের জন্য একটি ক্লাস্টারের অন্তর্ভুক্ত হওয়ার সম্ভাবনা গণনা করে ২. ওভারল্যাপিং ক্লাস্টার সনাক্ত করতে পারে ৩. কে-মিনসের তুলনায় আরও সঠিক ফলাফল</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. জটিল টিউনিং প্রয়োজন ২. প্রত্যাশিত মিশ্রণ উপাদান বা ক্লাস্টারের সংখ্যা সেট করা প্রয়োজন</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">T-SNE</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Clustering</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Unsupervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">ডেটাকে 2D বা 3D-তে রূপান্তর করে ক্লাস্টার ভিজ্যুয়ালাইজ করে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">হাই-ডাইমেনশন ডেটা এনালাইসিস</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">অসাধারণ ভিজ্যুয়াল রেজাল্ট</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">বড় ডেটার জন্য ধীর, স্কেলযোগ্য নয়</td>
+                        </tr>
+                        <tr class="bg-gray-50 hover:bg-gray-100 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">DBSCAN</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Clustering</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Unsupervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">ঘনত্বের ভিত্তিতে ক্লাস্টার তৈরি করে</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">অ্যানোমালি ডিটেকশন, স্প্যাশিয়াল ক্লাস্টারিং</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">আকার বা ক্লাস্টার সংখ্যা আগে জানার দরকার নেই</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">ভিন্ন ঘনত্বে সমস্যা হয়, প্যারামিটার সংবেদনশীল</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
+                            <td class="px-6 py-4 whitespace-normal text-gray-900">Apriori Algorithm</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Association</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">Unsupervised</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">নিয়ম-ভিত্তিক পদ্ধতি যা একটি প্রদত্ত ডেটাসেটে সবচেয়ে ঘন ঘন আইটেমসেট সনাক্ত করে, যেখানে ঘন ঘন আইটেমসেটের বৈশিষ্ট্যের পূর্ব জ্ঞান ব্যবহার করা হয়</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. পণ্যের স্থান নির্ধারণ ২. সুপারিশ সিস্টেম ৩. প্রচারের অপ্টিমাইজেশন</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. ফলাফল স্বজ্ঞাত এবং ব্যাখ্যাযোগ্য ২. এটি আত্মবিশ্বাস এবং সমর্থনের উপর ভিত্তি করে সমস্ত নিয়ম খুঁজে পায় বলে একটি বিস্তৃত পদ্ধতি</td>
+                            <td class="px-6 py-4 whitespace-normal text-gray-500">১. অনেক অপ্রীতিকর আইটেমসেট তৈরি করে ২. গণনার দিক থেকে এবং মেমরির দিক থেকে নিবিড় ৩. অনেক ওভারল্যাপিং আইটেমসেট তৈরি করে</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // JavaScript for PDF download functionality
+        window.jsPDF = window.jspdf.jsPDF; // Assign jsPDF to window object for global access
+
+        document.getElementById('downloadPdfBtn').addEventListener('click', function () {
+            const content = document.getElementById('tableToDownload');
+            
+            // Set the scale to improve quality in PDF
+            const scale = 2; 
+
+            // Use html2canvas to render the content as a canvas
+            html2canvas(content, {
+                scale: scale,
+                logging: true,
+                useCORS: true
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const imgWidth = 210; // A4 width in mm
+                const pageHeight = 295; // A4 height in mm
+                const imgHeight = canvas.height * imgWidth / canvas.width;
+                let heightLeft = imgHeight;
+
+                const doc = new jsPDF('p', 'mm', 'a4');
+                let position = 0;
+
+                doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    doc.addPage();
+                    doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+                doc.save('ML_cheatsheet.pdf');
+            }).catch(error => {
+                console.error("PDF generation failed:", error);
+                // A custom message box could be used here instead of an alert
+                alert("PDF তৈরি করতে একটি সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।");
+            });
+        });
+    </script>
+</body>
+</html>
