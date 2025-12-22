@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ইন্টারেক্টিভ রেগুলারাইজেশন গাইড: রিজ, ল্যাসো ও ইলাস্টিক নেট</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" xintegrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI76/y2JTapbKCMKrqDhVpIENB" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js" xintegrity="sha384-X/XCfMm41YSfkJfxwcqcZQLpTsEFfs4UuMznY6krLQSdSITd08SRqGNWsoRTGjJun" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js" xintegrity="sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR" crossorigin="anonymous"></script>
+    <!-- Chosen Palette: Calm Stone & Sage -->
+    <!-- Application Structure Plan: A side-nav SPA. Each regularization topic is a separate view. The core of the app is an interactive visualization where users can select a regularization type (Ridge, Lasso, Elastic Net) and manipulate its parameters (λ, α) via sliders. A dynamic bar chart shows the real-time effect of these changes on feature coefficients, providing an intuitive, hands-on understanding of coefficient shrinkage and feature selection. This is more effective than static text for building intuition. The detailed report content is organized into expandable accordion sections within each topic to prevent cognitive overload. -->
+    <!-- Visualization & Content Choices: 1) Core Concept: Regularization's effect on coefficients -> Goal: Build intuition -> Viz/Method: Chart.js bar chart for coefficients + HTML sliders for λ and α -> Interaction: User selects model type and adjusts sliders; bar chart updates in real-time to show coefficients shrinking or going to zero. Justification: Makes the abstract concepts of L1/L2 penalties tangible and visually understandable. 2) Detailed Information (Math, Use Cases, etc.) -> Goal: Provide in-depth knowledge -> Viz/Method: Accordion-style expandable sections using HTML/JS -> Interaction: Click to expand/collapse. Justification: Organizes dense information, allowing users to focus on one area at a time. 3) Mathematical Formulas -> Goal: Accurate representation -> Method: KaTeX library. Justification: Standard for rendering high-quality math on the web. 4) Comparison -> Goal: Quick side-by-side reference -> Viz/Method: Styled HTML table. Justification: Most efficient format for direct comparison. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Hind Siliguri', 'Inter', sans-serif;
+            background-color: #F5F5F4; /* Calm Stone */
+            color: #44403C;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+        
+        .katex { font-size: 1.1em !important; }
+
+        .nav-link {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .nav-link.active {
+            background-color: #A3B18A; /* Muted Sage */
+            color: #FFFFFF;
+            font-weight: 600;
+        }
+        .nav-link:not(.active):hover {
+            background-color: #DAD7CD;
+        }
+        .content-section { display: none; }
+        .content-section.active { display: block; }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 400px;
+            max-height: 50vh;
+        }
+        .accordion-button {
+            transition: background-color 0.3s ease;
+        }
+        .accordion-button:hover {
+            background-color: #EAE8E1;
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out, padding 0.5s ease-out;
+            padding: 0 1.5rem;
+        }
+        .accordion-content.open {
+            padding: 1.5rem;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-72 bg-[#DAD7CD] border-r border-gray-300">
+            <div class="p-6">
+                <h1 class="text-xl font-bold text-[#58514d]">মেশিন লার্নিং গাইড</h1>
+                <p class="text-sm text-gray-600 mt-1">রিজ, ল্যাসো ও ইলাস্টিক নেট</p>
+            </div>
+            <div style="margin-top: 20px;">
+                    <a href="index.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="index.html">হোম
+                    </a>
+            </div>
+            <div style="margin-bottom: 20px;">
+                    <a href="saus.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="saus.html">প্রাম্ভিক ধারনা
+                    </a>
+            </div>
+            <nav id="main-nav" class="flex flex-col p-2 space-y-1">
+                <a class="nav-link active rounded-md p-3" data-target="interactive_demo">রিজ, ল্যাসো ও ইলাস্টিক নেট</a>
+                <a class="nav-link rounded-md p-3" data-target="introduction">ভূমিকা</a>
+                <a class="nav-link rounded-md p-3" data-target="ridge">রিজ রিগ্রেশন</a>
+                <a class="nav-link rounded-md p-3" data-target="lasso">ল্যাসো রিগ্রেশন</a>
+                <a class="nav-link rounded-md p-3" data-target="elastic_net">ইলাস্টিক নেট</a>
+                <a class="nav-link rounded-md p-3" data-target="comparison">তুলনা</a>
+                <a class="nav-link rounded-md p-3" data-target="conclusion">উপসংহার</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+
+            <!-- Interactive Demo Section -->
+            <section id="interactive_demo" class="content-section active">
+                <h2 class="text-3xl font-bold mb-2 text-[#58514d]">ইন্টারেক্টিভ রেগুলারাইজেশন ডেমো</h2>
+                <p class="mb-6 text-gray-600">
+                    নিচের কন্ট্রোলার ব্যবহার করে দেখুন কিভাবে রিজ, ল্যাসো এবং ইলাস্টিক নেট রিগ্রেশন মডেলের সহগ (coefficients) পরিবর্তন করে। স্লাইডার ব্যবহার করে রেগুলারাইজেশন প্যারামিটার $\lambda$ (ল্যাম্বডা) এবং $\alpha$ (আলফা) পরিবর্তন করুন এবং দেখুন কিভাবে বিভিন্ন ফিচারের গুরুত্ব কমে বা শূন্য হয়ে যায়।
+                </p>
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                        <div>
+                            <label for="modelSelector" class="block text-sm font-medium text-gray-700 mb-1">মডেল নির্বাচন করুন</label>
+                            <select id="modelSelector" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#A3B18A] focus:border-[#A3B18A]">
+                                <option value="ridge" selected>রিজ রিগ্রেশন (L2)</option>
+                                <option value="lasso">ল্যাসো রিগ্রেশন (L1)</option>
+                                <option value="elastic_net">ইলাস্টিক নেট (L1 + L2)</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="lambdaSlider" class="block text-sm font-medium text-gray-700 mb-1">রেগুলারাইজেশন শক্তি ($\lambda$): <span id="lambdaValue" class="font-bold">0.1</span></label>
+                            <input type="range" id="lambdaSlider" min="0" max="5" value="0.1" step="0.05" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        <div id="alphaContainer">
+                            <label for="alphaSlider" class="block text-sm font-medium text-gray-700 mb-1">L1 অনুপাত ($\alpha$): <span id="alphaValue" class="font-bold">0.5</span></label>
+                            <input type="range" id="alphaSlider" min="0" max="1" value="0.5" step="0.01" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="coefficientChart"></canvas>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Other Sections -->
+            <div id="content-container"></div>
+        </main>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const contentData = {
+        introduction: {
+            title: "ভূমিকা",
+            content: `
+                <div class="space-y-4">
+                    <p class="text-lg leading-relaxed">লিনিয়ার রিগ্রেশন একটি শক্তিশালী টুল হলেও, এটি কিছু নির্দিষ্ট পরিস্থিতিতে সীমাবদ্ধতার সম্মুখীন হতে পারে, বিশেষ করে যখন ডেটাসেটে মাল্টিকোলিনিয়ারিটি (স্বাধীন ভেরিয়েবলগুলির মধ্যে উচ্চ সম্পর্ক) থাকে অথবা যখন ফিচারের সংখ্যা নমুনার সংখ্যার চেয়ে বেশি হয়। এই পরিস্থিতিতে, মডেল অতিরিক্ত জটিল হয়ে ওভারফিটিং করতে পারে, যার ফলে নতুন ডেটার উপর এর পারফরম্যান্স খারাপ হয়।</p>
+                    <p class="text-lg leading-relaxed">এই সমস্যা সমাধানের জন্য রেগুলারাইজেশন কৌশল ব্যবহার করা হয়। রেগুলারাইজেশন মডেলের কস্ট ফাংশনে একটি পেনাল্টি টার্ম যোগ করে, যা মডেলের সহগগুলির (coefficients) মানকে ছোট করে বা কিছু ক্ষেত্রে শূন্যে পরিণত করে। এটি মডেলের জটিলতা নিয়ন্ত্রণ করে এবং ওভারফিটিং প্রতিরোধ করে।</p>
+                    <p class="text-lg leading-relaxed">এই গাইডে, আমরা তিনটি প্রধান রেগুলারাইজড রিগ্রেশন কৌশল নিয়ে আলোচনা করব: রিজ, ল্যাসো, এবং ইলাস্টিক নেট।</p>
+                </div>
+            `
+        },
+        ridge: {
+            title: "রিজ রিগ্রেশন (Ridge Regression)",
+            sections: [
+                {
+                    title: "পরিচিতি এবং উদ্দেশ্য",
+                    content: `
+                        <p>রিজ রিগ্রেশন (L2 রেগুলারাইজেশন) মাল্টিকোলিনিয়ারিটি এবং ওভারফিটিং সমস্যা সমাধানের জন্য লিনিয়ার রিগ্রেশনের একটি উন্নত সংস্করণ। এটি মডেলের সহগগুলির বর্গাকার মানের উপর একটি পেনাল্টি প্রয়োগ করে, যা তাদের মানকে শূন্যের কাছাকাছি নিয়ে আসে কিন্তু ঠিক শূন্য করে না। এর মূল উদ্দেশ্য হলো মডেলের জটিলতা হ্রাস করা, মাল্টিকোলিনিয়ারিটি মোকাবিলা করা এবং মডেলের স্থায়িত্ব বৃদ্ধি করা।</p>
+                    `
+                },
+                {
+                    title: "গাণিতিক ভিত্তি",
+                    content: `
+                        <p>রিজ রিগ্রেশনের কস্ট ফাংশন হলো সাধারণ লিস্ট স্কোয়ার্স (OLS) কস্ট ফাংশনের সাথে একটি L2 পেনাল্টি টার্মের যোগফল:</p>
+                        <p class="my-4 text-center">$$J(\\beta) = \\sum_{i=1}^{n} (y_i - \\hat{y}_i)^2 + \\lambda \\sum_{j=1}^{p} \\beta_j^2$$</p>
+                        <p>এখানে, $\\lambda$ হলো রেগুলারাইজেশন প্যারামিটার, যা পেনাল্টির শক্তি নিয়ন্ত্রণ করে। $\\lambda$ বাড়লে সহগগুলির সংকোচন বাড়ে।</p>
+                    `
+                },
+                {
+                    title: "প্যারামিটার এবং হাইপারপ্যারামিটার",
+                    content: `
+                        <p><b>প্যারামিটার:</b> সহগ ($\\beta_j$) এবং ইন্টারসেপ্ট ($\\beta_0$)। রিজ রিগ্রেশনে সহগগুলি সংকুচিত হয় কিন্তু শূন্য হয় না, যার অর্থ সমস্ত ফিচারই মডেলে অবদান রাখে।</p>
+                        <p class="mt-4"><b>হাইপারপ্যারামিটার:</b> প্রধান হাইপারপ্যারামিটার হলো $\\lambda$ (ল্যাম্বডা), যা রেগুলারাইজেশন শক্তি নিয়ন্ত্রণ করে। সর্বোত্তম $\\lambda$ মান খুঁজে বের করার জন্য ক্রস-ভ্যালিডেশন ব্যবহার করা হয়।</p>
+                    `
+                },
+                {
+                    title: "ব্যবহারিক প্রয়োগ",
+                    content: `
+                        <ul class="list-disc list-inside space-y-2">
+                            <li><b>আর্থিক মডেলিং:</b> যখন অনেক অর্থনৈতিক সূচক একে অপরের সাথে সম্পর্কযুক্ত থাকে।</li>
+                            <li><b>জিনোমিক্স:</b> যেখানে বিপুল সংখ্যক জিনের অভিব্যক্তি ডেটা থেকে রোগ নির্ণয় করতে হয়।</li>
+                            <li><b>পরিবেশগত বিজ্ঞান:</b> যখন বিভিন্ন পরিবেশগত কারণ (যেমন তাপমাত্রা, আর্দ্রতা) পারস্পরিক সম্পর্কযুক্ত থাকে।</li>
+                        </ul>
+                    `
+                }
+            ]
+        },
+        lasso: {
+            title: "ল্যাসো রিগ্রেশন (Lasso Regression)",
+            sections: [
+                {
+                    title: "পরিচিতি এবং উদ্দেশ্য",
+                    content: `
+                        <p>ল্যাসো রিগ্রেশন (L1 রেগুলারাইজেশন) ফিচার নির্বাচন করার অনন্য ক্ষমতা প্রদান করে। এটি মডেলের সহগগুলির পরম মানের উপর পেনাল্টি প্রয়োগ করে, যা কিছু সহগকে ঠিক শূন্য করে দিতে পারে। এর ফলে অপ্রয়োজনীয় ফিচারগুলি মডেল থেকে কার্যকরভাবে বাদ পড়ে যায়।</p>
+                    `
+                },
+                {
+                    title: "গাণিতিক ভিত্তি",
+                    content: `
+                        <p>ল্যাসো রিগ্রেশনের কস্ট ফাংশন হলো OLS কস্ট ফাংশনের সাথে একটি L1 পেনাল্টি টার্মের যোগফল:</p>
+                        <p class="my-4 text-center">$$J(\\beta) = \\sum_{i=1}^{n} (y_i - \\hat{y}_i)^2 + \\lambda \\sum_{j=1}^{p} |\\beta_j|$$</p>
+                        <p>এখানেও, $\\lambda$ রেগুলারাইজেশন শক্তি নিয়ন্ত্রণ করে। $\\lambda$ বাড়লে আরও বেশি সহগ শূন্য হয়ে যায়।</p>
+                    `
+                },
+                {
+                    title: "প্যারামিটার এবং হাইপারপ্যারামিটার",
+                    content: `
+                        <p><b>প্যারামিটার:</b> সহগ ($\\beta_j$) এবং ইন্টারসেপ্ট ($\\beta_0$)। ল্যাসোতে কিছু সহগ শূন্য হয়ে যেতে পারে, যা ফিচার নির্বাচন করে।</p>
+                        <p class="mt-4"><b>হাইপারপ্যারামিটার:</b> প্রধান হাইপারপ্যারামিটার হলো $\\lambda$ (ল্যাম্বডা)। এটি ফিচার নির্বাচন এবং মডেলের সরলতার মধ্যে ভারসাম্য রক্ষা করে।</p>
+                    `
+                },
+                {
+                    title: "ব্যবহারিক প্রয়োগ",
+                    content: `
+                        <ul class="list-disc list-inside space-y-2">
+                            <li><b>জেনেটিক ডেটা বিশ্লেষণ:</b> যখন হাজার হাজার জিনের মধ্যে থেকে রোগের সাথে সম্পর্কিত কয়েকটি জিন সনাক্ত করতে হয়।</li>
+                            <li><b>অর্থনীতি:</b> যখন অনেক সম্ভাব্য অর্থনৈতিক সূচকের মধ্যে থেকে সবচেয়ে গুরুত্বপূর্ণ কয়েকটি সনাক্ত করার প্রয়োজন হয়।</li>
+                        </ul>
+                    `
+                }
+            ]
+        },
+        elastic_net: {
+            title: "ইলাস্টিক নেট রিগ্রেশন",
+            sections: [
+                {
+                    title: "পরিচিতি এবং উদ্দেশ্য",
+                    content: `
+                        <p>ইলাস্টিক নেট রিগ্রেশন রিজ এবং ল্যাসো উভয় কৌশলকে একত্রিত করে। এটি বিশেষত তখন কার্যকর হয় যখন ডেটাসেটে অনেক ফিচার থাকে এবং তাদের মধ্যে উচ্চ পারস্পরিক সম্পর্ক (multicollinearity) থাকে। এটি ল্যাসোর ফিচার নির্বাচন এবং রিজের সহগ সংকোচন উভয় সুবিধাই প্রদান করে।</p>
+                    `
+                },
+                {
+                    title: "গাণিতিক ভিত্তি",
+                    content: `
+                        <p>ইলাস্টিক নেটের কস্ট ফাংশনে L1 এবং L2 উভয় পেনাল্টি থাকে:</p>
+                        <p class="my-4 text-center">$$J(\\beta) = \\text{MSE} + \\lambda \\left[ \\alpha \\sum_{j=1}^{p} |\\beta_j| + (1-\\alpha) \\frac{1}{2}\\sum_{j=1}^{p} \\beta_j^2 \\right]$$</p>
+                        <p>এখানে, $\\lambda$ হলো মোট রেগুলারাইজেশন শক্তি এবং $\\alpha$ (আলফা) হলো L1 এবং L2 পেনাল্টির মধ্যে মিশ্রণ অনুপাত। $\\alpha=1$ হলে এটি ল্যাসো, এবং $\\alpha=0$ হলে এটি রিজ।</p>
+                    `
+                },
+                {
+                    title: "প্যারামিটার এবং হাইপারপ্যারামিটার",
+                    content: `
+                        <p><b>প্যারামিটার:</b> সহগ এবং ইন্টারসেপ্ট। ইলাস্টিক নেট সম্পর্কযুক্ত ফিচারগুলির গ্রুপকে একসাথে মডেলে রাখতে পারে।</p>
+                        <p class="mt-4"><b>হাইপারপ্যারামিটার:</b> দুটি প্রধান হাইপারপ্যারামিটার হলো $\\lambda$ (মোট রেগুলারাইজেশন শক্তি) এবং $\\alpha$ (L1 এবং L2 এর মিশ্রণ)। ক্রস-ভ্যালিডেশন ব্যবহার করে এই দুটির সর্বোত্তম সংমিশ্রণ খুঁজে বের করা হয়।</p>
+                    `
+                },
+                {
+                    title: "ব্যবহারিক প্রয়োগ",
+                    content: `
+                        <ul class="list-disc list-inside space-y-2">
+                            <li><b>বায়োইনফরম্যাটিক্স:</b> যখন সম্পর্কযুক্ত জিনের গ্রুপগুলি রোগের সাথে সম্পর্কিত থাকে।</li>
+                            <li><b>প্রাকৃতিক ভাষা প্রক্রিয়াকরণ (NLP):</b> যখন টেক্সট ডেটাতে অনেক সম্পর্কযুক্ত শব্দ থাকে।</li>
+                        </ul>
+                    `
+                }
+            ]
+        },
+        comparison: {
+            title: "রিজ, ল্যাসো এবং ইলাস্টিক নেট: একটি তুলনা",
+            content: `
+                <div class="overflow-x-auto bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">বৈশিষ্ট্য</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">রিজ রিগ্রেশন</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">ল্যাসো রিগ্রেশন</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">ইলাস্টিক নেট</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr><td class="px-6 py-4 font-semibold">রেগুলারাইজেশন</td><td class="px-6 py-4">L2</td><td class="px-6 py-4">L1</td><td class="px-6 py-4">L1 + L2</td></tr>
+                            <tr><td class="px-6 py-4 font-semibold">ফিচার নির্বাচন</td><td class="px-6 py-4">না</td><td class="px-6 py-4">হ্যাঁ</td><td class="px-6 py-4">হ্যাঁ</td></tr>
+                            <tr><td class="px-6 py-4 font-semibold">মাল্টিকোলিনিয়ারিটি</td><td class="px-6 py-4">ভালো কাজ করে</td><td class="px-6 py-4">সম্পর্কযুক্ত ফিচার থেকে একটি নির্বাচন করে</td><td class="px-6 py-4">সম্পর্কযুক্ত ফিচারদের গ্রুপকে একসাথে রাখে</td></tr>
+                            <tr><td class="px-6 py-4 font-semibold">কখন ব্যবহার করবেন</td><td class="px-6 py-4">যখন সব ফিচার প্রাসঙ্গিক কিন্তু মাল্টিকোলিনিয়ারিটি আছে।</td><td class="px-6 py-4">যখন অনেক অপ্রাসঙ্গিক ফিচার আছে এবং মডেল সরলীকরণ প্রয়োজন।</td><td class="px-6 py-4">যখন অনেক ফিচার আছে এবং তাদের মধ্যে সম্পর্কযুক্ত গ্রুপ আছে।</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            `
+        },
+        conclusion: {
+            title: "উপসংহার এবং পরবর্তী পদক্ষেপ",
+            content: `
+                <p class="text-lg leading-relaxed">রিজ, ল্যাসো এবং ইলাস্টিক নেট রিগ্রেশন সাধারণ লিনিয়ার রিগ্রেশনের সীমাবদ্ধতা অতিক্রম করতে সাহায্য করে। সঠিক কৌশলটি ডেটাসেটের বৈশিষ্ট্য এবং মডেলের উদ্দেশ্যের উপর নির্ভর করে। এই কৌশলগুলি আয়ত্ত করার মাধ্যমে, শিক্ষার্থীরা আরও শক্তিশালী এবং স্থিতিশীল মেশিন লার্নিং মডেল তৈরি করতে সক্ষম হবে।</p>
+                <h3 class="text-xl font-semibold mt-6 mb-3">পরবর্তী পদক্ষেপ</h3>
+                <ul class="list-disc list-inside space-y-2">
+                    <li>উন্নত হাইপারপ্যারামিটার টিউনিং কৌশল (যেমন, Bayesian Optimization) সম্পর্কে জানুন।</li>
+                    <li>মডেল ব্যাখ্যাযোগ্যতার জন্য SHAP এবং LIME এর মতো টুলস ব্যবহার করুন।</li>
+                    <li>বিভিন্ন বাস্তব-বিশ্বের ডেটাসেটে এই মডেলগুলি প্রয়োগ করে অনুশীলন করুন।</li>
+                </ul>
+            `
+        }
+    };
+
+    const contentContainer = document.getElementById('content-container');
+    const mainNav = document.getElementById('main-nav');
+    
+    function buildAccordion(sections) {
+        return sections.map((section, index) => `
+            <div class="border border-gray-200 rounded-lg mb-2 bg-white">
+                <button class="accordion-button w-full text-left p-4 font-semibold text-lg text-[#58514d] flex justify-between items-center" data-target="accordion-${index}">
+                    ${section.title}
+                    <span class="transform transition-transform duration-300">▼</span>
+                </button>
+                <div id="accordion-${index}" class="accordion-content">
+                    <div class="prose max-w-none">${section.content}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderPage(targetId) {
+        const data = contentData[targetId];
+        if (!data) return;
+
+        let html = `<h2 class="text-3xl font-bold mb-4 text-[#58514d]">${data.title}</h2>`;
+        if (data.sections) {
+            html += buildAccordion(data.sections);
+        } else {
+            html += `<div class="prose max-w-none bg-white p-6 rounded-lg shadow-md border border-gray-200">${data.content}</div>`;
+        }
+        contentContainer.innerHTML = html;
+        
+        // Add event listeners to new accordion buttons
+        document.querySelectorAll('.accordion-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const content = document.getElementById(button.dataset.target);
+                const icon = button.querySelector('span');
+                
+                if (content.classList.contains('open')) {
+                    content.classList.remove('open');
+                    content.style.maxHeight = '0';
+                    icon.style.transform = 'rotate(0deg)';
+                } else {
+                    content.classList.add('open');
+                    content.style.maxHeight = content.scrollHeight + 48 + "px"; // 48px for padding
+                     icon.style.transform = 'rotate(180deg)';
+                }
+            });
+        });
+
+        if (window.renderMathInElement) {
+            renderMathInElement(contentContainer, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                ]
+            });
+        }
+    }
+
+    mainNav.addEventListener('click', (e) => {
+        if (e.target.tagName === 'A') {
+            const targetId = e.target.dataset.target;
+
+            document.querySelectorAll('#main-nav a').forEach(link => link.classList.remove('active'));
+            e.target.classList.add('active');
+
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            if (document.getElementById(targetId)) {
+                document.getElementById(targetId).classList.add('active');
+                contentContainer.innerHTML = ''; // Clear dynamic content if switching to static section
+            } else {
+                renderPage(targetId);
+            }
+        }
+    });
+
+    // --- Interactive Chart Logic ---
+    let coefficientChart;
+    const modelSelector = document.getElementById('modelSelector');
+    const lambdaSlider = document.getElementById('lambdaSlider');
+    const alphaSlider = document.getElementById('alphaSlider');
+    const lambdaValueSpan = document.getElementById('lambdaValue');
+    const alphaValueSpan = document.getElementById('alphaValue');
+    const alphaContainer = document.getElementById('alphaContainer');
+    
+    const originalCoefficients = {
+        'ফিচার ১ (গুরুত্বপূর্ণ)': 8.5,
+        'ফিচার ২ (গুরুত্বপূর্ণ)': 7.0,
+        'ফিচার ৩ (সম্পর্কযুক্ত)': 6.8,
+        'ফিচার ৪ (কম গুরুত্বপূর্ণ)': 2.5,
+        'ফিচার ৫ (অপ্রাসঙ্গিক)': 0.5,
+    };
+    
+    function calculateRegularizedCoeffs() {
+        const model = modelSelector.value;
+        const lambda = parseFloat(lambdaSlider.value);
+        const alpha = parseFloat(alphaSlider.value);
+        
+        lambdaValueSpan.textContent = lambda.toFixed(2);
+        alphaValueSpan.textContent = alpha.toFixed(2);
+        
+        alphaContainer.style.display = model === 'elastic_net' ? 'block' : 'none';
+
+        const newCoeffs = {};
+        for (const feature in originalCoefficients) {
+            const originalCoeff = originalCoefficients[feature];
+            let newCoeff = 0;
+
+            if (model === 'ridge') {
+                newCoeff = originalCoeff / (1 + lambda);
+            } else if (model === 'lasso') {
+                const threshold = lambda / 2; // Simplified for visualization
+                newCoeff = Math.sign(originalCoeff) * Math.max(0, Math.abs(originalCoeff) - threshold);
+            } else if (model === 'elastic_net') {
+                const l1_penalty = alpha * lambda;
+                const l2_penalty = (1 - alpha) * lambda;
+                
+                const lasso_part = Math.sign(originalCoeff) * Math.max(0, Math.abs(originalCoeff) - l1_penalty / 2);
+                newCoeff = lasso_part / (1 + l2_penalty);
+            }
+            newCoeffs[feature] = newCoeff;
+        }
+        return newCoeffs;
+    }
+
+    function updateChart() {
+        const newCoefficients = calculateRegularizedCoeffs();
+        coefficientChart.data.datasets[0].data = Object.values(newCoefficients);
+        coefficientChart.update();
+    }
+
+    function initChart() {
+        const ctx = document.getElementById('coefficientChart').getContext('2d');
+        const labels = Object.keys(originalCoefficients);
+        const initialData = Object.values(calculateRegularizedCoeffs());
+
+        coefficientChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'সহগের মান (Coefficient Value)',
+                    data: initialData,
+                    backgroundColor: [
+                        '#576C5B',
+                        '#576C5B',
+                        '#A3B18A',
+                        '#B4755B',
+                        '#D5A08C',
+                    ],
+                    borderColor: '#44403C',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'ফিচারের সহগের উপর রেগুলারাইজেশনের প্রভাব',
+                        font: { size: 16 }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'সহগের মান'
+                        }
+                    },
+                    y: {
+                        ticks: {
+                           font: { size: 12 }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    modelSelector.addEventListener('change', updateChart);
+    lambdaSlider.addEventListener('input', updateChart);
+    alphaSlider.addEventListener('input', updateChart);
+
+    // Initial render
+    initChart();
+});
+
+</script>
+</body>
+</html>

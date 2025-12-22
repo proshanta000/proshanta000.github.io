@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ইন্টারেক্টিভ গ্রেডিয়েন্ট বুস্টিং রিগ্রেশন</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" xintegrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI76/y2JTapbKCMKrqDhVpIENB" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js" xintegrity="sha384-X/XCfMm41YSfkJfxwcqcZQLpTsEFfs4UuMznY6krLQSdSITd08SRqGNWsoRTGjJun" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js" xintegrity="sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR" crossorigin="anonymous"></script>
+
+    <!-- Chosen Palette: Scholarly Teal -->
+    <!-- Application Structure Plan: The SPA is built around a central "Interactive Demo" to facilitate hands-on learning. Navigation is handled by a clean, left-aligned sidebar, allowing users to easily access supplementary theoretical content. The theory sections, derived from the source report, are organized into collapsible accordions to manage information density and prevent overwhelming the user. This 'interact-first, then explore theory' design aims to build strong intuition about the step-by-step nature of Gradient Boosting before diving into the mathematical details. -->
+    <!-- Visualization & Content Choices: 1. Gradient Boosting Process -> Goal: Visually demonstrate the core concept of sequentially fitting to residuals. -> Viz/Method: A main Chart.js chart shows the actual data (scatter), the current ensemble prediction (line), and the residuals (vertical lines). A smaller, secondary chart visualizes only the residuals that the *next* weak learner will be trained on. -> Interaction: A "পরবর্তী ধাপ" (Next Iteration) button drives the simulation. Each click triggers one iteration of the Gradient Boosting algorithm (implemented in JS), updating the main model, the prediction line, the residuals, and the secondary chart. Sliders for `learning_rate` and `n_estimators` allow users to see their impact on the convergence process. -> Justification: This multi-chart, step-by-step approach makes the abstract idea of "training on errors" explicit and tangible. The user can clearly see the error (residuals) at step M and how the new tree at step M+1 is designed specifically to correct that error. 2. Theory/Applications -> Goal: Provide structured, detailed information. -> Viz/Method: HTML/JS accordions. -> Interaction: Click-to-expand. -> Justification: Breaks down complex text into user-controllable chunks, improving readability and learning retention. KaTeX is used for clear formula rendering. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+            color: #1e293b; /* slate-800 */
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+        
+        .katex { font-size: 1.1em !important; }
+        .nav-link {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .nav-link.active {
+            color: #0d9488; /* teal-600 */
+            background-color: #f0fdfa; /* teal-50 */
+            font-weight: 600;
+        }
+        .nav-link:not(.active):hover {
+            background-color: #f1f5f9; /* slate-100 */
+        }
+        .content-section { display: none; }
+        .content-section.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .accordion-button { transition: background-color 0.2s ease-in-out; }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-in-out, padding 0.4s ease-in-out;
+            padding: 0 1.5rem;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            max-height: 55vh;
+            width: 100%;
+        }
+        .residual-chart-container {
+             position: relative;
+            height: 200px;
+            max-height: 25vh;
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="flex flex-col md:flex-row min-h-screen bg-slate-50">
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-80 bg-white border-r border-slate-200 flex-shrink-0 p-4">
+            <header class="text-center mb-6 pt-4">
+                <h1 class="text-2xl font-bold text-slate-800">মেশিন লার্নিং গাইড</h1>
+                <p class="text-slate-600 text-sm mt-1">গ্রেডিয়েন্ট বুস্টিং</p>
+            </header>
+            <div style="margin-top: 20px;">
+                    <a href="index.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="index.html">হোম
+                    </a>
+            </div>
+            <div style="margin-bottom: 20px;">
+                    <a href="saus.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="saus.html">প্রাম্ভিক ধারনা
+                    </a>
+            </div>
+
+            <nav id="main-nav" class="flex flex-col space-y-1">
+                <a class="nav-link active py-3 px-4 rounded-md" data-target="interactive_demo">গ্রেডিয়েন্ট বুস্টিং</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="theory">থিওরি ও গণিত</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="applications">ব্যবহারিক প্রয়োগ</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="evaluation">মডেল মূল্যায়ন</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+            <section id="interactive_demo" class="content-section active">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                    <h2 class="text-2xl font-bold mb-2 text-slate-800">গ্রেডিয়েন্ট বুস্টিং ডেমো: ধাপে ধাপে</h2>
+                    <p class="text-slate-600 mb-4">
+                       "পরবর্তী ধাপ" বাটনে ক্লিক করে দেখুন কিভাবে মডেলটি প্রতিটি ধাপে পূর্ববর্তী মডেলের ভুল (residuals) থেকে শেখে এবং ধীরে ধীরে ডেটার সাথে ফিট করে।
+                       <br><br>
+                       <strong>মূল মডেলের পূর্বাভাস চার্ট:</strong> এই চার্টে নীল বিন্দুগুলি হলো আপনার আসল ডেটা। সবুজ লাইনটি হলো মডেলের বর্তমান পূর্বাভাস। প্রতিটি ডেটা পয়েন্ট থেকে সবুজ লাইন পর্যন্ত লাল উল্লম্ব রেখাগুলি হলো বর্তমান ত্রুটি বা অবশিষ্টাংশ। মডেলের লক্ষ্য হলো এই লাল রেখাগুলিকে ছোট করা।
+                       <br><br>
+                       <strong>পরবর্তী ট্রি এর টার্গেট (অবশিষ্টাংশ) চার্ট:</strong> এই চার্টে লাল বারগুলি হলো বর্তমান ত্রুটি (residuals)। মডেলের পরবর্তী দুর্বল লার্নার (একটি ছোট ডিসিশন ট্রি) এই ত্রুটিগুলিকে পূর্বাভাস দিতে শেখে। লক্ষ্য হলো এই বারগুলির মানকে শূন্যের কাছাকাছি নিয়ে আসা।
+                       <br><br>
+                       <strong>কন্ট্রোল:</strong>
+                       <ul>
+                           <li><strong>লার্নিং রেট:</strong> এটি প্রতিটি নতুন শেখা ট্রি এর পূর্বাভাসকে মূল মডেলে যোগ করার আগে কতটুকু স্কেল করবে তা নিয়ন্ত্রণ করে। ছোট লার্নিং রেট মানে মডেলটি ধীরে ধীরে শেখে এবং ওভারফিটিং হওয়ার সম্ভাবনা কম, তবে বেশি ধাপের প্রয়োজন হতে পারে।</li>
+                           <li><strong>ট্রির সংখ্যা:</strong> এটি মোট কতগুলি দুর্বল লার্নার মডেল তৈরি করা হবে তা নির্ধারণ করে। যত বেশি ট্রি, মডেল তত বেশি নির্ভুল হতে পারে, তবে প্রশিক্ষণের সময় বাড়বে।</li>
+                       </ul>
+                    </p>
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+                        <!-- Left Column: Controls and Info -->
+                        <div class="space-y-6">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg border">
+                                <div>
+                                    <label for="learningRateSlider" class="block font-medium text-slate-700">লার্নিং রেট: <span id="learningRateValue" class="font-bold text-teal-700 text-lg">0.3</span></label>
+                                    <input type="range" id="learningRateSlider" min="0.1" max="1.0" value="0.3" step="0.1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                                </div>
+                                <div>
+                                    <label for="nEstimatorsSlider" class="block font-medium text-slate-700">ট্রির সংখ্যা: <span id="nEstimatorsValue" class="font-bold text-teal-700 text-lg">50</span></label>
+                                    <input type="range" id="nEstimatorsSlider" min="1" max="100" value="50" step="1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                                </div>
+                            </div>
+                            <div class="flex space-x-4">
+                               <button id="nextStepBtn" class="flex-1 bg-teal-600 text-white font-semibold py-3 px-4 rounded-md hover:bg-teal-700 transition">পরবর্তী ধাপ (Next Iteration)</button>
+                               <button id="resetBtn" class="flex-1 bg-slate-200 text-slate-800 font-semibold py-3 px-4 rounded-md hover:bg-slate-300 transition">রিসেট</button>
+                            </div>
+                            <div id="info-panel" class="bg-slate-50 p-4 rounded-lg border space-y-3">
+                                <h3 class="font-semibold text-slate-800 text-lg border-b pb-2 mb-2">বর্তমান অবস্থা</h3>
+                                <p><strong>ধাপ (Iteration):</strong> <span id="iteration-info" class="font-mono text-teal-700 font-bold">0</span> / <span id="total-iterations" class="font-mono">50</span></p>
+                                <p><strong>মিন স্কোয়ার্ড এরর (MSE):</strong> <span id="mse-info" class="font-mono text-teal-700 font-bold">N/A</span></p>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Charts -->
+                        <div class="space-y-4">
+                             <div class="chart-container">
+                                <h3 class="font-semibold text-slate-800 mb-2 text-center">মূল মডেলের পূর্বাভাস</h3>
+                                <canvas id="mainChart"></canvas>
+                            </div>
+                             <div class="residual-chart-container">
+                                 <h3 class="font-semibold text-slate-800 mb-2 text-center">পরবর্তী ট্রি এর টার্গেট (অবশিষ্টাংশ)</h3>
+                                <canvas id="residualChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Other sections rendered dynamically -->
+            <section id="theory" class="content-section"></section>
+            <section id="applications" class="content-section"></section>
+            <section id="evaluation" class="content-section"></section>
+        </main>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const contentData = {
+        theory: {
+            title: "থিওরি ও গণিত",
+            sections: [
+                {
+                    title: "গ্রেডিয়েন্ট বুস্টিং পরিচিতি",
+                    content: `<p>গ্রেডিয়েন্ট বুস্টিং একটি শক্তিশালী এনসেম্বল লার্নিং অ্যালগরিদম যা একাধিক দুর্বল লার্নারকে (সাধারণত ডিসিশন ট্রি) একত্রিত করে একটি শক্তিশালী মডেল তৈরি করে। এটি প্রতিটি ধাপে পূর্ববর্তী মডেলের ভুল বা অবশিষ্টাংশ (residuals) থেকে শিখে মডেলের পারফরম্যান্স উন্নত করে।</p>`
+                },
+                {
+                    title: "গাণিতিক ভিত্তি",
+                    content: `
+                        <p>গ্রেডিয়েন্ট বুস্টিং নিম্নলিখিত ধাপগুলির মাধ্যমে কাজ করে:</p>
+                        <ol class="list-decimal list-inside space-y-3 mt-2">
+                           <li><b>প্রাথমিক পূর্বাভাস:</b> মডেলটি একটি প্রাথমিক ধ্রুবক মান দিয়ে শুরু হয়, যা সাধারণত ডেটার গড় হয়। $F_0(x) = \\bar{y}$</li>
+                           <li><b>অবশিষ্টাংশ গণনা:</b> প্রতিটি পুনরাবৃত্তিতে ($m=1, ..., M$), পূর্ববর্তী মডেলের ভুলের (অবশিষ্টাংশ) গণনা করা হয়: $r_{im} = y_i - F_{m-1}(x_i)$</li>
+                           <li><b>দুর্বল লার্নার প্রশিক্ষণ:</b> একটি নতুন দুর্বল লার্নার ($h_m(x)$) এই অবশিষ্টাংশগুলিকে টার্গেট হিসাবে ব্যবহার করে প্রশিক্ষণ দেওয়া হয়।</li>
+                           <li><b>মডেল আপডেট:</b> নতুন লার্নারের আউটপুটকে একটি লার্নিং রেট ($\eta$) দ্বারা স্কেল করে মূল মডেলে যোগ করা হয়: $F_m(x) = F_{m-1}(x) + \\eta h_m(x)$</li>
+                           <li><b>চূড়ান্ত পূর্বাভাস:</b> সমস্ত দুর্বল লার্নারের সম্মিলিত আউটপুটই চূড়ান্ত পূর্বাভাস। $F_M(x)$</li>
+                        </ol>
+                    `
+                },
+                {
+                    title: "হাইপারপ্যারামিটার",
+                    content: `
+                       <p>গ্রেডিয়েন্ট বুস্টিংয়ের কার্যকারিতা কয়েকটি গুরুত্বপূর্ণ হাইপারপ্যারামিটারের উপর নির্ভরশীল।</p>
+                       <div class="overflow-x-auto mt-4">
+                        <table class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">হাইপারপ্যারামিটার</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">ব্যাখ্যা</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-slate-200">
+                                <tr><td class="px-4 py-2 font-medium">n_estimators</td><td class="px-4 py-2">দুর্বল লার্নারের (ট্রির) সংখ্যা।</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">learning_rate</td><td class="px-4 py-2">প্রতিটি ট্রির অবদান নিয়ন্ত্রণ করে (shrinkage)।</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">max_depth</td><td class="px-4 py-2">প্রতিটি ট্রির সর্বোচ্চ গভীরতা।</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">subsample</td><td class="px-4 py-2">প্রতিটি ট্রি প্রশিক্ষণের জন্য ব্যবহৃত ডেটার ভগ্নাংশ।</td></tr>
+                            </tbody>
+                        </table>
+                        </div>
+                    `
+                }
+            ]
+        },
+        applications: {
+            title: "ব্যবহারিক প্রয়োগ",
+            sections: [
+                {
+                    title: "বাস্তব-বিশ্বের ব্যবহার",
+                    content: `
+                        <div class="grid md:grid-cols-2 gap-4 mt-4">
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">ক্রেডিট স্কোরিং</h4><p class="text-sm text-slate-600">গ্রাহকের ক্রেডিটযোগ্যতা মূল্যায়ন করতে।</p></div>
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">সার্চ র‍্যাঙ্কিং</h4><p class="text-sm text-slate-600">সার্চ ফলাফলের প্রাসঙ্গিকতা অনুযায়ী র‍্যাঙ্ক করতে।</p></div>
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">রোগের পূর্বাভাস</h4><p class="text-sm text-slate-600">রোগীর তথ্যের উপর ভিত্তি করে রোগের সম্ভাবনা নির্ণয়।</p></div>
+                             <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">বাড়ির দামের পূর্বাভাস</h4><p class="text-sm text-slate-600">বিভিন্ন ফিচারের উপর ভিত্তি করে বাড়ির মূল্য অনুমান।</p></div>
+                        </div>
+                    `
+                }
+            ]
+        },
+        evaluation: {
+            title: "মডেল মূল্যায়ন মেট্রিক্স",
+            sections: [{
+                title: "শ্রেণীকরণ এবং রিগ্রেশন মেট্রিক্স",
+                content: `
+                    <p>গ্রেডিয়েন্ট বুস্টিং মডেলের পারফরম্যান্স মূল্যায়নের জন্য বিভিন্ন মেট্রিক্স ব্যবহৃত হয়:</p>
+                    <h4 class="mt-4 font-semibold">শ্রেণীকরণ</h4>
+                    <ul class="list-disc list-inside space-y-1 mt-2">
+                       <li><b>Accuracy, Precision, Recall, F1-Score, ROC-AUC</b></li>
+                    </ul>
+                     <h4 class="mt-4 font-semibold">রিগ্রেশন</h4>
+                    <ul class="list-disc list-inside space-y-1 mt-2">
+                       <li><b>Mean Squared Error (MSE), Root Mean Squared Error (RMSE), R-squared (R²)</b></li>
+                    </ul>
+                `
+            }]
+        }
+    };
+    
+    // --- Navigation and Content Rendering ---
+    const mainNav = document.getElementById('main-nav');
+    function buildAccordion(sections) {
+        return sections.map((section) => `
+            <div class="border border-slate-200 rounded-lg mb-3 bg-white shadow-sm">
+                <button class="accordion-button w-full text-left p-4 font-semibold text-lg text-slate-800 flex justify-between items-center hover:bg-slate-50" data-accordion-id="accordion-${section.title.replace(/\s/g, '')}">
+                    <span>${section.title}</span>
+                    <span class="transform transition-transform duration-300 text-teal-600">▼</span>
+                </button>
+                <div id="accordion-${section.title.replace(/\s/g, '')}" class="accordion-content">
+                    <div class="p-4 pt-0 text-slate-700 leading-relaxed">${section.content}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderPage(targetId) {
+        const container = document.getElementById(targetId);
+        if (!container || !contentData[targetId]) return;
+        const data = contentData[targetId];
+        let html = `<h2 class="text-3xl font-bold mb-6 text-slate-800">${data.title}</h2>`;
+        html += buildAccordion(data.sections);
+        container.innerHTML = html;
+        container.querySelectorAll('.accordion-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const content = document.getElementById(button.dataset.accordionId);
+                const icon = button.querySelector('span:last-child');
+                const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+                if (isOpen) { content.style.maxHeight = '0px'; icon.style.transform = 'rotate(0deg)'; } 
+                else { content.style.maxHeight = content.scrollHeight + 30 + "px"; icon.style.transform = 'rotate(180deg)'; }
+            });
+        });
+        if (window.renderMathInElement) renderMathInElement(container, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });
+    }
+
+    mainNav.addEventListener('click', (e) => {
+        if (e.target.tagName === 'A') {
+            const targetId = e.target.dataset.target;
+            mainNav.querySelectorAll('a').forEach(link => link.classList.remove('active'));
+            e.target.classList.add('active');
+            document.querySelectorAll('.content-section').forEach(section => section.classList.remove('active'));
+            document.getElementById(targetId).classList.add('active');
+            if (targetId !== 'interactive_demo' && !document.getElementById(targetId).innerHTML) renderPage(targetId);
+        }
+    });
+
+    // --- Gradient Boosting Interactive Logic ---
+    const learningRateSlider = document.getElementById('learningRateSlider');
+    const nEstimatorsSlider = document.getElementById('nEstimatorsSlider');
+    const learningRateValue = document.getElementById('learningRateValue');
+    const nEstimatorsValue = document.getElementById('nEstimatorsValue');
+    const totalIterationsSpan = document.getElementById('total-iterations');
+    const nextStepBtn = document.getElementById('nextStepBtn');
+    const resetBtn = document = document.getElementById('resetBtn');
+    const iterationInfo = document.getElementById('iteration-info');
+    const mseInfo = document.getElementById('mse-info');
+    
+    let mainChart, residualChart;
+    let trainingData = [];
+    let currentPredictions = [];
+    let residuals = [];
+    let ensemble = [];
+    let iteration = 0;
+    
+    // --- Simplified Decision Tree Regressor (Stump) ---
+    function findBestSplit(dataset) {
+        let bestSplit = { mse: Infinity };
+        const xValues = dataset.map(p => p.x);
+
+        for (const x of xValues) {
+            const left = dataset.filter(p => p.x < x);
+            const right = dataset.filter(p => p.x >= x);
+            if (left.length === 0 || right.length === 0) continue;
+            
+            const leftAvg = left.reduce((sum, p) => sum + p.y, 0) / left.length;
+            const rightAvg = right.reduce((sum, p) => sum + p.y, 0) / right.length;
+            
+            let mse = 0;
+            left.forEach(p => { mse += (p.y - leftAvg) ** 2; });
+            right.forEach(p => { mse += (p.y - rightAvg) ** 2; });
+            
+            if (mse < bestSplit.mse) {
+                bestSplit = { threshold: x, leftValue: leftAvg, rightValue: rightAvg, mse };
+            }
+        }
+        return bestSplit;
+    }
+
+    class DecisionStump {
+        constructor() {
+            this.threshold = 0;
+            this.leftValue = 0;
+            this.rightValue = 0;
+        }
+
+        fit(data) { // data is {x, y} where y is the residual
+            const best = findBestSplit(data);
+            this.threshold = best.threshold;
+            this.leftValue = best.leftValue;
+            this.rightValue = best.rightValue;
+        }
+
+        predict(x) {
+            return x < this.threshold ? this.leftValue : this.rightValue;
+        }
+    }
+
+    function generateData(count = 50) {
+        trainingData = [];
+        for (let i = 0; i < count; i++) {
+            const x = Math.random() * 10;
+            const y = Math.sin(x) * 3 + (Math.random() - 0.5);
+            trainingData.push({ x, y });
+        }
+        trainingData.sort((a, b) => a.x - b.x);
+    }
+    
+    function calculateMSE() {
+        if (trainingData.length === 0) return 0;
+        let sumSqErr = 0;
+        for (let i = 0; i < trainingData.length; i++) {
+            sumSqErr += (trainingData[i].y - currentPredictions[i]) ** 2;
+        }
+        return sumSqErr / trainingData.length;
+    }
+    
+    function initializeState() {
+        iteration = 0;
+        ensemble = [];
+        generateData();
+        
+        const avgY = trainingData.reduce((sum, p) => sum + p.y, 0) / trainingData.length;
+        currentPredictions = new Array(trainingData.length).fill(avgY);
+        
+        updateUI();
+        if(mainChart) mainChart.destroy();
+        if(residualChart) residualChart.destroy();
+        initCharts();
+    }
+
+    function runIteration() {
+        const nEstimators = parseInt(nEstimatorsSlider.value);
+        if (iteration >= nEstimators) return;
+        iteration++;
+
+        // Calculate residuals
+        residuals = trainingData.map((p, i) => p.y - currentPredictions[i]);
+        
+        // Train a new weak learner on residuals
+        const weakLearner = new DecisionStump();
+        const residualData = trainingData.map((p, i) => ({ x: p.x, y: residuals[i] }));
+        weakLearner.fit(residualData);
+        ensemble.push(weakLearner);
+        
+        // Update predictions
+        const learningRate = parseFloat(learningRateSlider.value);
+        for (let i = 0; i < trainingData.length; i++) {
+            currentPredictions[i] += learningRate * weakLearner.predict(trainingData[i].x);
+        }
+        
+        updateUI();
+        updateCharts();
+    }
+    
+    function updateUI() {
+        learningRateValue.textContent = parseFloat(learningRateSlider.value).toFixed(1);
+        nEstimatorsValue.textContent = parseInt(nEstimatorsSlider.value);
+        totalIterationsSpan.textContent = nEstimatorsSlider.value;
+        iterationInfo.textContent = iteration;
+        mseInfo.textContent = calculateMSE().toFixed(4);
+    }
+
+    // --- Charting Logic ---
+    const residualLinesPlugin = {
+        id: 'residualLines',
+        afterDraw: (chart) => {
+            const { ctx, data, scales } = chart;
+            const { x, y } = scales;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 99, 132, 0.5)';
+            ctx.lineWidth = 1;
+            data.datasets[0].data.forEach((point, index) => {
+                const yActual = y.getPixelForValue(point.y);
+                const yPred = y.getPixelForValue(data.datasets[1].data[index].y);
+                const xPixel = x.getPixelForValue(point.x);
+                ctx.beginPath();
+                ctx.moveTo(xPixel, yActual);
+                ctx.lineTo(xPixel, yPred);
+                ctx.stroke();
+            });
+            ctx.restore();
+        }
+    };
+
+    function initCharts() {
+        // Main Chart
+        const mainCtx = document.getElementById('mainChart').getContext('2d');
+        mainChart = new Chart(mainCtx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    { label: 'প্রকৃত ডেটা', data: trainingData, backgroundColor: 'rgba(59, 130, 246, 0.7)' },
+                    { 
+                      label: 'মডেলের পূর্বাভাস', 
+                      data: trainingData.map((p, i) => ({ x: p.x, y: currentPredictions[i] })),
+                      type: 'line',
+                      borderColor: 'rgba(22, 163, 74, 1)',
+                      backgroundColor: 'transparent',
+                      borderWidth: 3,
+                      pointRadius: 0
+                    }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false },
+            plugins: [residualLinesPlugin]
+        });
+
+        // Residual Chart
+        const residualCtx = document.getElementById('residualChart').getContext('2d');
+        residualChart = new Chart(residualCtx, {
+            type: 'bar',
+            data: {
+                labels: trainingData.map((p, i) => i),
+                datasets: [{ 
+                    label: 'অবশিষ্টাংশ', 
+                    data: trainingData.map((p, i) => p.y - currentPredictions[i]), 
+                    backgroundColor: 'rgba(239, 68, 68, 0.7)' 
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { x: { display: false }, y: { title: { display: true, text: 'ত্রুটি' } } }
+            }
+        });
+    }
+    
+    function updateCharts() {
+        mainChart.data.datasets[1].data = trainingData.map((p, i) => ({ x: p.x, y: currentPredictions[i] }));
+        mainChart.update();
+
+        residualChart.data.datasets[0].data = trainingData.map((p, i) => p.y - currentPredictions[i]);
+        residualChart.update();
+    }
+
+    // Event Listeners
+    nextStepBtn.addEventListener('click', runIteration);
+    resetBtn.addEventListener('click', initializeState);
+    learningRateSlider.addEventListener('input', updateUI);
+    nEstimatorsSlider.addEventListener('input', updateUI);
+
+    initializeState();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ইন্টারেক্টিভ অ্যাডাবোস্ট ক্লাসিফায়ার</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" xintegrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI76/y2JTapbKCMKrqDhVpIENB" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js" xintegrity="sha384-X/XCfMm41YSfkJfxwcqcZQLpTsEFfs4UuMznY6krLQSdSITd08SRqGNWsoRTGjJun" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js" xintegrity="sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR" crossorigin="anonymous"></script>
+
+    <!-- Chosen Palette: Scholarly Indigo -->
+    <!-- Application Structure Plan: The SPA is structured as an interactive learning module with a clear focus on demonstrating the AdaBoost algorithm step-by-step. It uses a persistent left sidebar for navigation between the "Interactive Demo" and theoretical sections. This allows users to easily switch between hands-on learning and reading detailed content. The theoretical information from the source report is organized into collapsible accordions to prevent overwhelming the user, promoting a "pull" model of information consumption rather than "push". The default view is the demo, encouraging an 'interact-first, read-later' approach to build intuition. -->
+    <!-- Visualization & Content Choices: 1. AdaBoost Iteration -> Goal: Visually demonstrate the core adaptive weighting mechanism. -> Viz/Method: A Chart.js scatter plot is used to display data points. The size of each point (`pointRadius`) is dynamically updated to represent its current weight in the algorithm. -> Interaction: A "পরবর্তী ধাপ" (Next Iteration) button drives the simulation. On each click, the JS implementation of AdaBoost finds the best decision stump, calculates error, updates data point weights, and computes the stump's influence (alpha). The chart is then re-rendered to show the new point sizes and the decision boundary of the latest stump. -> Justification: This step-by-step visualization makes the abstract concepts of 'weighted error', 'data point weighting', and 'weak learner influence' tangible and easy to follow. 2. Theory & Math -> Goal: Provide comprehensive reference material. -> Viz/Method: HTML/JS accordions. -> Interaction: Click-to-expand. -> Justification: Organizes dense text and mathematical formulas from the report into manageable chunks, making it less intimidating. KaTeX is used for clear formula rendering. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+            color: #1e293b; /* slate-800 */
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+        
+        .katex { font-size: 1.1em !important; }
+        .nav-link {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .nav-link.active {
+            color: #4338ca; /* indigo-700 */
+            background-color: #e0e7ff; /* indigo-100 */
+            font-weight: 600;
+        }
+        .nav-link:not(.active):hover {
+            background-color: #f1f5f9; /* slate-100 */
+        }
+        .content-section { display: none; }
+        .content-section.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .accordion-button { transition: background-color 0.2s ease-in-out; }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-in-out, padding 0.4s ease-in-out;
+            padding: 0 1.5rem;
+        }
+        .chart-container {
+            position: relative;
+            height: 450px;
+            max-height: 60vh;
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="flex flex-col md:flex-row min-h-screen bg-slate-50">
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-80 bg-white border-r border-slate-200 flex-shrink-0 p-4">
+            <header class="text-center mb-6 pt-4">
+                <h1 class="text-2xl font-bold text-slate-800">মেশিন লার্নিং গাইড</h1>
+                <p class="text-slate-600 text-sm mt-1">অ্যাডাপ্টিভ বুস্টিং</p>
+            </header>
+            <div style="margin-top: 20px;">
+                    <a href="index.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="index.html">হোম
+                    </a>
+            </div>
+            <div style="margin-bottom: 20px;">
+                    <a href="saus.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="saus.html">প্রাম্ভিক ধারনা
+                    </a>
+            </div>
+
+            <nav id="main-nav" class="flex flex-col space-y-1">
+                <a class="nav-link active py-3 px-4 rounded-md" data-target="interactive_demo">অ্যাডাবোস্ট ক্লাসিফায়ার</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="theory">থিওরি ও গণিত</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="applications">ব্যবহারিক প্রয়োগ</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="evaluation">মডেল মূল্যায়ন</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+            <section id="interactive_demo" class="content-section active">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                    <h2 class="text-2xl font-bold mb-2 text-slate-800">অ্যাডাবোস্ট ডেমো: ধাপে ধাপে</h2>
+                    <p class="text-slate-600 mb-4">
+                        "পরবর্তী ধাপ" বাটনে ক্লিক করে দেখুন কিভাবে অ্যাডাবোস্ট প্রতিটি ধাপে ভুল ডেটা পয়েন্টগুলিতে বেশি ওজন দিয়ে শেখে। পয়েন্টের আকার তার ওজনকে নির্দেশ করে।
+                        <br><br>
+                        <strong>ডেটা পয়েন্ট এবং সিদ্ধান্ত স্টাম্প চার্ট:</strong> এই চার্টে লাল এবং নীল বিন্দুগুলি হলো আপনার ডেটা পয়েন্ট, যা দুটি ভিন্ন শ্রেণীতে বিভক্ত। প্রতিটি বিন্দুর আকার তার বর্তমান ওজনকে নির্দেশ করে – যত বড় বিন্দু, তত বেশি ওজন এবং তত বেশি মডেলের মনোযোগ আকর্ষণ করে। সবুজ রেখাটি হলো বর্তমান ধাপের দুর্বল লার্নারের (ডিসিশন স্টাম্প) সিদ্ধান্ত সীমানা, যা ডেটা পয়েন্টগুলিকে বিভক্ত করার চেষ্টা করে।
+                        <br><br>
+                        <strong>বর্তমান ধাপের তথ্য প্যানেল:</strong>
+                        <ul>
+                            <li><strong>ধাপ (Iteration):</strong> এটি অ্যাডাবোস্ট অ্যালগরিদমের বর্তমান পুনরাবৃত্তি সংখ্যা দেখায়। প্রতিটি ধাপে একটি নতুন দুর্বল লার্নার তৈরি হয়।</li>
+                            <li><strong>দুর্বল লার্নারের ত্রুটি ($\epsilon_m$):</strong> এটি বর্তমান দুর্বল লার্নার কর্তৃক ভুলভাবে শ্রেণীবদ্ধ করা ডেটা পয়েন্টগুলির মোট ভারযুক্ত ত্রুটি নির্দেশ করে। এই মান যত কম হবে, দুর্বল লার্নার তত ভালো কাজ করেছে।</li>
+                            <li><strong>লার্নারের ওজন ($\alpha_m$):</strong> এটি বর্তমান দুর্বল লার্নারের চূড়ান্ত ভবিষ্যদ্বাণীতে কতটা প্রভাব থাকবে তা নির্দেশ করে। ত্রুটি ($\epsilon_m$) যত কম হবে, ($\alpha_m$) এর মান তত বেশি হবে, অর্থাৎ দুর্বল লার্নারটি তত বেশি গুরুত্বপূর্ণ।</li>
+                        </ul>
+                        প্রতিটি ধাপে, মডেল এই তথ্যগুলি ব্যবহার করে তার শেখার প্রক্রিয়াকে অভিযোজিত করে, যাতে পরবর্তী দুর্বল লার্নারগুলি আগের মডেলগুলির ভুলগুলি থেকে শিখতে পারে।
+                    </p>
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+                        <!-- Left Column: Controls and Info -->
+                        <div class="space-y-6">
+                            <div class="flex space-x-4">
+                               <button id="nextStepBtn" class="flex-1 bg-indigo-600 text-white font-semibold py-3 px-4 rounded-md hover:bg-indigo-700 transition">পরবর্তী ধাপ (Next Iteration)</button>
+                               <button id="resetBtn" class="flex-1 bg-slate-200 text-slate-800 font-semibold py-3 px-4 rounded-md hover:bg-slate-300 transition">রিসেট</button>
+                            </div>
+                            
+                            <div id="info-panel" class="bg-slate-50 p-4 rounded-lg border space-y-3">
+                                <h3 class="font-semibold text-slate-800 text-lg border-b pb-2 mb-2">বর্তমান ধাপের তথ্য</h3>
+                                <p><strong>ধাপ (Iteration):</strong> <span id="iteration-info" class="font-mono text-indigo-700 font-bold">0</span></p>
+                                <p><strong>দুর্বল লার্নারের ত্রুটি ($\epsilon_m$):</strong> <span id="error-info" class="font-mono text-indigo-700 font-bold">N/A</span></p>
+                                <p><strong>লার্নারের ওজন ($\alpha_m$):</strong> <span id="alpha-info" class="font-mono text-indigo-700 font-bold">N/A</span></p>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Chart -->
+                        <div class="chart-container">
+                             <h3 class="font-semibold text-slate-800 mb-2 text-center">ডেটা পয়েন্ট এবং সিদ্ধান্ত স্টাম্প</h3>
+                            <canvas id="adaboostChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Other sections rendered dynamically -->
+            <section id="theory" class="content-section"></section>
+            <section id="applications" class="content-section"></section>
+            <section id="evaluation" class="content-section"></section>
+        </main>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const contentData = {
+        theory: {
+            title: "থিওরি ও গণিত",
+            sections: [
+                {
+                    title: "অ্যাডাবোস্ট পরিচিতি এবং উদ্দেশ্য",
+                    content: `<p>অ্যাডাবোস্ট (AdaBoost), যার পূর্ণরূপ হলো অ্যাডাপ্টিভ বুস্টিং, একটি শক্তিশালী এনসেম্বল মেশিন লার্নিং অ্যালগরিদম যা মূলত শ্রেণীকরণ সমস্যার জন্য ব্যবহৃত হয়। এটি একাধিক দুর্বল লার্নারকে (যেমন, ডিসিশন স্টাম্প) একত্রিত করে একটি শক্তিশালী লার্নার তৈরি করে। অ্যাডাবোস্টের মূল ধারণাটি হলো, এটি পুনরাবৃত্তিমূলকভাবে প্রশিক্ষণ ডেটাসেটে ভুল শ্রেণীবদ্ধ করা ডেটা পয়েন্টগুলিতে বেশি মনোযোগ দিয়ে নতুন লার্নারদের প্রশিক্ষণ দেয়।</p>`
+                },
+                {
+                    title: "গাণিতিক ভিত্তি",
+                    content: `
+                        <p>অ্যাডাবোস্ট অ্যালগরিদম নিম্নলিখিত প্রধান গাণিতিক ধাপগুলির মাধ্যমে কাজ করে:</p>
+                        <ol class="list-decimal list-inside space-y-3 mt-2">
+                           <li><b>ডেটা ওয়েট ইনিশিয়ালাইজেশন:</b> প্রাথমিকভাবে, প্রতিটি ডেটা পয়েন্টকে সমান ওজন ($D_1(i) = 1/N$) দেওয়া হয়।</li>
+                           <li><b>দুর্বল লার্নার প্রশিক্ষণ:</b> প্রতিটি পুনরাবৃত্তিতে ($m$), একটি নতুন দুর্বল লার্নার ($h_m(x)$) বর্তমান ডেটা ওজন ব্যবহার করে প্রশিক্ষণ দেওয়া হয়।</li>
+                           <li><b>ত্রুটি গণনা:</b> দুর্বল লার্নারের ত্রুটি ($\epsilon_m$) গণনা করা হয়: $\epsilon_m = \\sum D_m(i) \\cdot I(y_i \\neq h_m(x_i))$</li>
+                           <li><b>লার্নার ওয়েট গণনা:</b> ত্রুটির উপর ভিত্তি করে লার্নারের ওজন ($\alpha_m$) গণনা করা হয়: $\\alpha_m = \\frac{1}{2} \\ln (\\frac{1 - \\epsilon_m}{\\epsilon_m})$</li>
+                           <li><b>ডেটা ওয়েট আপডেট:</b> পরবর্তী পুনরাবৃত্তির জন্য ডেটা পয়েন্টগুলির ওজন আপডেট করা হয়। ভুল শ্রেণীবদ্ধ পয়েন্টের ওজন বাড়ে, সঠিকগুলির কমে।</li>
+                           <li><b>চূড়ান্ত ভবিষ্যদ্বাণী:</b> সমস্ত দুর্বল লার্নারদের ভারযুক্ত সংখ্যাগরিষ্ঠ ভোট দ্বারা চূড়ান্ত সিদ্ধান্ত নেওয়া হয়: $H(x) = \\text{sign}(\\sum \\alpha_m h_m(x))$</li>
+                        </ol>
+                    `
+                },
+                {
+                    title: "হাইপারপ্যারামিটার",
+                    content: `
+                       <p>অ্যাডাবোস্টের কার্যকারিতা কয়েকটি গুরুত্বপূর্ণ হাইপারপ্যারামিটারের উপর নির্ভরশীল।</p>
+                       <div class="overflow-x-auto mt-4">
+                        <table class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">হাইপারপ্যারামিটার</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">ব্যাখ্যা</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-slate-200">
+                                <tr><td class="px-4 py-2 font-medium">n_estimators</td><td class="px-4 py-2">দুর্বল লার্নারদের সংখ্যা।</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">learning_rate</td><td class="px-4 py-2">প্রতিটি লার্নারের অবদান নিয়ন্ত্রণ করে।</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">base_estimator</td><td class="px-4 py-2">ব্যবহৃত দুর্বল লার্নারের ধরন (সাধারণত ডিসিশন স্টাম্প)।</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">algorithm</td><td class="px-4 py-2">ব্যবহৃত অ্যালগরিদম ('SAMME' বা 'SAMME.R')।</td></tr>
+                            </tbody>
+                        </table>
+                        </div>
+                    `
+                }
+            ]
+        },
+        applications: {
+            title: "ব্যবহারিক প্রয়োগ",
+            sections: [
+                {
+                    title: "বাস্তব-বিশ্বের ব্যবহার",
+                    content: `
+                        <div class="grid md:grid-cols-2 gap-4 mt-4">
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">ফেস ডিটেকশন</h4><p class="text-sm text-slate-600">ছবি বা ভিডিও থেকে মানুষের মুখ সনাক্ত করতে ব্যবহৃত হয়।</p></div>
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">স্প্যাম ফিল্টারিং</h4><p class="text-sm text-slate-600">ইমেল স্প্যাম কিনা তা শ্রেণীবদ্ধ করতে ব্যবহৃত হয়।</p></div>
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">ক্রেডিট ঝুঁকি মূল্যায়ন</h4><p class="text-sm text-slate-600">ঋণ আবেদনকারীদের ঝুঁকি মূল্যায়ন করতে ব্যবহৃত হয়।</p></div>
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">গ্রাহক চর্ন পূর্বাভাস</h4><p class="text-sm text-slate-600">কোন গ্রাহকরা পরিষেবা ত্যাগ করতে পারে তা পূর্বাভাস দেওয়া।</p></div>
+                        </div>
+                    `
+                }
+            ]
+        },
+        evaluation: {
+            title: "মডেল মূল্যায়ন মেট্রিক্স",
+            sections: [{
+                title: "শ্রেণীকরণ মেট্রিক্স",
+                content: `
+                    <p>অ্যাডাবোস্ট মডেলের পারফরম্যান্স মূল্যায়নের জন্য সাধারণত ব্যবহৃত মেট্রিক্স:</p>
+                    <ul class="list-disc list-inside space-y-1 mt-2">
+                        <li><b>Accuracy:</b> সঠিক ভবিষ্যদ্বাণীর মোট অনুপাত।</li>
+                        <li><b>Precision:</b> ধনাত্মক ভবিষ্যদ্বাণীর মধ্যে কতগুলি সঠিক।</li>
+                        <li><b>Recall:</b> প্রকৃত ধনাত্মকগুলির মধ্যে কতগুলি সনাক্ত করা হয়েছে।</li>
+                        <li><b>F1-Score:</b> Precision এবং Recall এর হারমোনিক গড়।</li>
+                        <li><b>ROC-AUC:</b> মডেলের সামগ্রিক বৈষম্যমূলক ক্ষমতা মূল্যায়নের জন্য।</li>
+                    </ul>
+                `
+            }]
+        }
+    };
+    
+    // --- Navigation and Content Rendering ---
+    const mainNav = document.getElementById('main-nav');
+    function buildAccordion(sections) {
+        return sections.map((section) => `
+            <div class="border border-slate-200 rounded-lg mb-3 bg-white shadow-sm">
+                <button class="accordion-button w-full text-left p-4 font-semibold text-lg text-slate-800 flex justify-between items-center hover:bg-slate-50" data-accordion-id="accordion-${section.title.replace(/\s/g, '')}">
+                    <span>${section.title}</span>
+                    <span class="transform transition-transform duration-300 text-indigo-600">▼</span>
+                </button>
+                <div id="accordion-${section.title.replace(/\s/g, '')}" class="accordion-content">
+                    <div class="p-4 pt-0 text-slate-700 leading-relaxed">${section.content}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderPage(targetId) {
+        const container = document.getElementById(targetId);
+        if (!container || !contentData[targetId]) return;
+        const data = contentData[targetId];
+        let html = `<h2 class="text-3xl font-bold mb-6 text-slate-800">${data.title}</h2>`;
+        html += buildAccordion(data.sections);
+        container.innerHTML = html;
+        container.querySelectorAll('.accordion-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const content = document.getElementById(button.dataset.accordionId);
+                const icon = button.querySelector('span:last-child');
+                const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+                if (isOpen) { content.style.maxHeight = '0px'; icon.style.transform = 'rotate(0deg)'; } 
+                else { content.style.maxHeight = content.scrollHeight + 30 + "px"; icon.style.transform = 'rotate(180deg)'; }
+            });
+        });
+        if (window.renderMathInElement) renderMathInElement(container, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });
+    }
+
+    mainNav.addEventListener('click', (e) => {
+        if (e.target.tagName === 'A') {
+            const targetId = e.target.dataset.target;
+            mainNav.querySelectorAll('a').forEach(link => link.classList.remove('active'));
+            e.target.classList.add('active');
+            document.querySelectorAll('.content-section').forEach(section => section.classList.remove('active'));
+            document.getElementById(targetId).classList.add('active');
+            if (targetId !== 'interactive_demo' && !document.getElementById(targetId).innerHTML) renderPage(targetId);
+        }
+    });
+
+    // --- AdaBoost Interactive Logic ---
+    const nextStepBtn = document.getElementById('nextStepBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const iterationInfo = document.getElementById('iteration-info');
+    const errorInfo = document.getElementById('error-info');
+    const alphaInfo = document.getElementById('alpha-info');
+    const chartCanvas = document.getElementById('adaboostChart');
+
+    let adaChart;
+    let trainingData = [];
+    let weights = [];
+    let iteration = 0;
+    const MAX_ITERATIONS = 10;
+    
+    const COLORS = { CLASS_0: 'rgba(239, 68, 68, 0.8)', CLASS_1: 'rgba(59, 130, 246, 0.8)' };
+
+    function generateData(count = 50) {
+        trainingData = [];
+        for (let i = 0; i < count; i++) {
+            let x, y, label;
+            if (i < count * 0.7) {
+                x = Math.random() * 4 + 1;
+                y = Math.random() * 8 + 1;
+                label = 1;
+            } else {
+                x = Math.random() * 4 + 5;
+                y = Math.random() * 8 + 1;
+                label = -1;
+            }
+            if (Math.random() < 0.15) label *= -1; // Add noise
+            trainingData.push({ x, y, label });
+        }
+    }
+
+    function initializeState() {
+        iteration = 0;
+        iterationInfo.textContent = '0';
+        errorInfo.textContent = 'N/A';
+        alphaInfo.textContent = 'N/A';
+        generateData();
+        weights = new Array(trainingData.length).fill(1 / trainingData.length);
+        if (adaChart) adaChart.destroy();
+        initChart();
+    }
+    
+    function findBestStump() {
+        let bestStump = {};
+        let minError = Infinity;
+
+        // Check splits along x-axis
+        const xValues = [...new Set(trainingData.map(p => p.x))].sort((a, b) => a - b);
+        for (let i = 0; i < xValues.length - 1; i++) {
+            const threshold = (xValues[i] + xValues[i+1]) / 2;
+            for (const polarity of [1, -1]) {
+                let error = 0;
+                for (let j = 0; j < trainingData.length; j++) {
+                    const prediction = (trainingData[j].x < threshold) ? polarity : -polarity;
+                    if (prediction !== trainingData[j].label) {
+                        error += weights[j];
+                    }
+                }
+                if (error < minError) {
+                    minError = error;
+                    bestStump = { feature: 'x', threshold, polarity, error };
+                }
+            }
+        }
+        // Similar check for y-axis
+        const yValues = [...new Set(trainingData.map(p => p.y))].sort((a, b) => a - b);
+        for (let i = 0; i < yValues.length - 1; i++) {
+            const threshold = (yValues[i] + yValues[i+1]) / 2;
+            for (const polarity of [1, -1]) {
+                let error = 0;
+                for (let j = 0; j < trainingData.length; j++) {
+                    const prediction = (trainingData[j].y < threshold) ? polarity : -polarity;
+                    if (prediction !== trainingData[j].label) {
+                        error += weights[j];
+                    }
+                }
+                if (error < minError) {
+                    minError = error;
+                    bestStump = { feature: 'y', threshold, polarity, error };
+                }
+            }
+        }
+        return bestStump;
+    }
+    
+    function runIteration() {
+        if (iteration >= MAX_ITERATIONS) return;
+        iteration++;
+        
+        const stump = findBestStump();
+        if (stump.error > 0.5) {
+            iteration--; // Don't count this iteration
+            alert("মডেল এর চেয়ে বেশি উন্নত করা যাবে না (Error > 0.5)। রিসেট করুন।");
+            return; 
+        }
+        
+        const alpha = 0.5 * Math.log((1 - stump.error) / (stump.error + 1e-10));
+        
+        // Update weights
+        let weightSum = 0;
+        for (let i = 0; i < trainingData.length; i++) {
+            const prediction = (stump.feature === 'x' ? trainingData[i].x < stump.threshold : trainingData[i].y < stump.threshold) ? stump.polarity : -stump.polarity;
+            weights[i] *= Math.exp(-alpha * trainingData[i].label * prediction);
+            weightSum += weights[i];
+        }
+        
+        // Normalize weights
+        for (let i = 0; i < weights.length; i++) {
+            weights[i] /= weightSum;
+        }
+
+        iterationInfo.textContent = iteration;
+        errorInfo.textContent = stump.error.toFixed(4);
+        alphaInfo.textContent = alpha.toFixed(4);
+        
+        updateChartVisualization(stump);
+    }
+
+    const decisionBoundaryPlugin = {
+        id: 'decisionBoundary',
+        afterDraw: (chart, args, options) => {
+            const stump = options.stump;
+            if (!stump) return;
+            const { ctx, chartArea: { top, left, bottom, right }, scales: { x, y } } = chart;
+            ctx.save();
+            ctx.beginPath();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#059669'; // emerald-600
+            if (stump.feature === 'x') {
+                const xPixel = x.getPixelForValue(stump.threshold);
+                ctx.moveTo(xPixel, top);
+                ctx.lineTo(xPixel, bottom);
+            } else {
+                const yPixel = y.getPixelForValue(stump.threshold);
+                ctx.moveTo(left, yPixel);
+                ctx.lineTo(right, yPixel);
+            }
+            ctx.stroke();
+            ctx.restore();
+        }
+    };
+    
+    function updateChartVisualization(stump) {
+        adaChart.data.datasets[0].pointRadius = weights.map(w => 3 + w * 50);
+        adaChart.options.plugins.decisionBoundary.stump = stump;
+        adaChart.update();
+    }
+
+    function initChart() {
+        const ctx = chartCanvas.getContext('2d');
+        Chart.register(decisionBoundaryPlugin);
+        adaChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'ডেটা',
+                    data: trainingData.map(p => ({ x: p.x, y: p.y })),
+                    backgroundColor: trainingData.map(p => p.label === 1 ? COLORS.CLASS_0 : COLORS.CLASS_1),
+                    pointRadius: weights.map(w => 3 + w * 50),
+                    borderWidth: 1,
+                    borderColor: 'rgba(0,0,0,0.5)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { x: { min: 0, max: 10 }, y: { min: 0, max: 10 } },
+                plugins: {
+                    decisionBoundary: { stump: null },
+                    tooltip: { enabled: false }
+                }
+            }
+        });
+    }
+
+    nextStepBtn.addEventListener('click', runIteration);
+    resetBtn.addEventListener('click', initializeState);
+    
+    initializeState();
+});
+</script>
+</body>
+</html>

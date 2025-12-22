@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ইন্টারেক্টিভ র‍্যান্ডম ফরেস্ট ক্লাসিফায়ার</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" xintegrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI76/y2JTapbKCMKrqDhVpIENB" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js" xintegrity="sha384-X/XCfMm41YSfkJfxwcqcZQLpTsEFfs4UuMznY6krLQSdSITd08SRqGNWsoRTGjJun" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js" xintegrity="sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR" crossorigin="anonymous"></script>
+
+    <!-- Chosen Palette: Scholarly Grove -->
+    <!-- Application Structure Plan: The application is designed as a focused learning environment. The centerpiece is the "Interactive Demo," which allows users to directly manipulate hyperparameters and observe their effects, promoting an intuitive understanding of the Random Forest algorithm. A clean, left-aligned sidebar provides clear navigation to supplementary sections: "Theory & Math," "Applications," and "Evaluation." These sections use an accordion layout to present the detailed text from the source report in a structured, non-overwhelming manner. This "interact-first, then read" design encourages active learning and makes complex material more accessible. -->
+    <!-- Visualization & Content Choices: 1. Random Forest Ensemble Effect -> Goal: Demonstrate how multiple, varied decision trees combine to form a robust classifier. -> Viz/Method: A main Chart.js scatter plot showing the final ensemble decision boundary, alongside a few smaller HTML/CSS visualizations of individual trees from the forest. -> Interaction: Sliders for `n_estimators` (number of trees) and `max_depth` (tree complexity) trigger a re-training of the Random Forest model (a simplified JS implementation). The main chart's background grid (decision boundary) and the individual tree diagrams update in real-time. -> Justification: This directly visualizes the core concepts of bagging and feature randomness, showing how many simple, slightly different models can create a smooth and accurate final model, making the abstract idea of an "ensemble" tangible. 2. Theoretical Content -> Goal: Provide in-depth information from the source report. -> Viz/Method: HTML/JS-powered accordions. -> Interaction: Click to expand/collapse. -> Justification: Breaks down dense theoretical information into digestible parts, allowing users to control the learning pace. KaTeX is used for clear rendering of all mathematical formulas. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+            color: #0f172a; /* slate-900 */
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+        
+        .katex { font-size: 1.1em !important; }
+        .nav-link {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .nav-link.active {
+            color: #059669; /* emerald-600 */
+            background-color: #ecfdf5; /* emerald-50 */
+            font-weight: 600;
+        }
+        .nav-link:not(.active):hover {
+            background-color: #f1f5f9; /* slate-100 */
+        }
+        .content-section { display: none; }
+        .content-section.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .accordion-button { transition: background-color 0.2s ease-in-out; }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-in-out, padding 0.4s ease-in-out;
+            padding: 0 1.5rem;
+        }
+        .chart-container {
+            position: relative;
+            height: 450px;
+            max-height: 60vh;
+            width: 100%;
+        }
+        .tree-viz {
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            background-color: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            padding: 10px;
+            border-radius: 8px;
+            overflow: auto;
+            max-height: 150px;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="flex flex-col md:flex-row min-h-screen bg-slate-50">
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-80 bg-white border-r border-slate-200 flex-shrink-0 p-4">
+            <header class="text-center mb-6 pt-4">
+                <h1 class="text-2xl font-bold text-slate-800">সাপোর্ট ভেক্টর মেশিন</h1>
+                <p class="text-slate-600 text-sm mt-1">র‍্যান্ডম ফরেস্ট</p>
+            </header>
+             <div style="margin-top: 20px;">
+                    <a href="index.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="index.html">হোম
+                    </a>
+            </div>
+            <div style="margin-bottom: 20px;">
+                    <a href="saus.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="saus.html">প্রাম্ভিক ধারনা
+                    </a>
+            </div>
+
+            <nav id="main-nav" class="flex flex-col space-y-1">
+                <a class="nav-link active py-3 px-4 rounded-md" data-target="interactive_demo">ইন্টারেক্টিভ ডেমো</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="theory">থিওরি ও গণিত</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="applications">ব্যবহারিক প্রয়োগ</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="evaluation">মডেল মূল্যায়ন</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+            <!-- Interactive Demo Section -->
+            <section id="interactive_demo" class="content-section active">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                    <h2 class="text-2xl font-bold mb-2 text-slate-800">র‍্যান্ডম ফরেস্ট ডেমো</h2>
+                    <p class="text-slate-600 mb-4">
+                        হাইপারপ্যারামিটার পরিবর্তন করে দেখুন কিভাবে একাধিক ডিসিশন ট্রি একত্রিত হয়ে একটি শক্তিশালী মডেল তৈরি করে।
+                    </p>
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+                        <!-- Left Column: Controls and Tree Vizzes -->
+                        <div class="space-y-6">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg border">
+                                <div>
+                                    <label for="nEstimatorsSlider" class="block font-medium text-slate-700">ট্রির সংখ্যা: <span id="nEstimatorsValue" class="font-bold text-emerald-700 text-lg">10</span></label>
+                                    <input type="range" id="nEstimatorsSlider" min="1" max="50" value="10" step="1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                                </div>
+                                <div>
+                                    <label for="maxDepthSlider" class="block font-medium text-slate-700">সর্বোচ্চ গভীরতা: <span id="maxDepthValue" class="font-bold text-emerald-700 text-lg">4</span></label>
+                                    <input type="range" id="maxDepthSlider" min="1" max="10" value="4" step="1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                                </div>
+                            </div>
+                            <button id="regenDataBtn" class="w-full bg-emerald-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-emerald-700 transition">নতুন ডেটা জেনারেট করুন</button>
+                            
+                            <div id="individual-trees-container" class="space-y-4">
+                               <h3 class="font-semibold text-slate-800">নমুনা ট্রি কাঠামো</h3>
+                               <!-- Individual tree visualizations will be injected here -->
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Chart -->
+                        <div class="chart-container">
+                             <h3 class="font-semibold text-slate-800 mb-2 text-center">সম্মিলিত সিদ্ধান্ত সীমানা</h3>
+                            <canvas id="randomForestChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Other sections rendered dynamically -->
+            <section id="theory" class="content-section"></section>
+            <section id="applications" class="content-section"></section>
+            <section id="evaluation" class="content-section"></section>
+        </main>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const contentData = {
+        theory: {
+            title: "থিওরি ও গণিত",
+            sections: [
+                {
+                    title: "র‍্যান্ডম ফরেস্ট পরিচিতি",
+                    content: `<p>র‍্যান্ডম ফরেস্ট হলো একটি এনসেম্বল মেশিন লার্নিং অ্যালগরিদম যা একাধিক ডিসিশন ট্রিকে একত্রিত করে একটি শক্তিশালী মডেল তৈরি করে। এটি একক ডিসিশন ট্রির ওভারফিটিং প্রবণতা হ্রাস করে এবং নির্ভুলতা বাড়ায়।</p>`
+                },
+                {
+                    title: "গাণিতিক ভিত্তি: ব্যাজিং এবং ফিচার র‍্যান্ডমাইজেশন",
+                    content: `
+                        <p>র‍্যান্ডম ফরেস্ট দুটি প্রধান কৌশলের উপর ভিত্তি করে কাজ করে:</p>
+                        <h4 class="mt-4 font-semibold">১. বুটস্ট্র্যাপ অ্যাগ্রিগেটিং (Bagging)</h4>
+                        <p>প্রশিক্ষণ ডেটাসেট থেকে প্রতিস্থাপনের সাথে একাধিক স্যাম্পল (বুটস্ট্র্যাপ স্যাম্পল) তৈরি করা হয়। প্রতিটি স্যাম্পলের উপর একটি করে ডিসিশন ট্রি প্রশিক্ষণ দেওয়া হয়।</p>
+                        <h4 class="mt-4 font-semibold">২. র‍্যান্ডম ফিচার নির্বাচন</h4>
+                        <p>প্রতিটি ট্রির প্রতিটি নোডে সেরা স্প্লিট খুঁজে বের করার সময়, সমস্ত ফিচারের পরিবর্তে শুধুমাত্র র‍্যান্ডমভাবে নির্বাচিত ফিচারগুলির একটি উপ-সেট বিবেচনা করা হয়। এটি ট্রিগুলির মধ্যে বৈচিত্র্য বাড়ায়।</p>
+                        <h4 class="mt-4 font-semibold">চূড়ান্ত সিদ্ধান্ত</h4>
+                        <p>শ্রেণীকরণে, চূড়ান্ত ভবিষ্যদ্বাণী সংখ্যাগরিষ্ঠ ভোটের মাধ্যমে হয়। রিগ্রেশনে, এটি ভবিষ্যদ্বাণীগুলির গড় হয়।</p>
+                    `
+                },
+                {
+                    title: "হাইপারপ্যারামিটার",
+                    content: `
+                       <p>র‍্যান্ডম ফরেস্টের কার্যকারিতা কয়েকটি গুরুত্বপূর্ণ হাইপারপ্যারামিটারের উপর নির্ভরশীল।</p>
+                       <div class="overflow-x-auto mt-4">
+                        <table class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">হাইপারপ্যারামিটার</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">ব্যাখ্যা</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-slate-200">
+                                <tr><td class="px-4 py-2 font-medium">n_estimators</td><td class="px-4 py-2">ফরেস্টে ট্রির সংখ্যা।</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">max_features</td><td class="px-4 py-2">প্রতিটি স্প্লিটে বিবেচ্য ফিচারের সংখ্যা।</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">max_depth</td><td class="px-4 py-2">প্রতিটি ট্রির সর্বোচ্চ গভীরতা।</td></tr>
+                                <tr><td class="px-4 py-2 font-medium">min_samples_leaf</td><td class="px-4 py-2">লিফ নোডের জন্য সর্বনিম্ন নমুনার সংখ্যা।</td></tr>
+                            </tbody>
+                        </table>
+                        </div>
+                    `
+                }
+            ]
+        },
+        applications: {
+            title: "ব্যবহারিক প্রয়োগ",
+            sections: [
+                {
+                    title: "বাস্তব-বিশ্বের ব্যবহার",
+                    content: `
+                        <div class="grid md:grid-cols-2 gap-4 mt-4">
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">ক্রেডিট ঝুঁকি মূল্যায়ন</h4><p class="text-sm text-slate-600">আবেদনকারীর তথ্যের উপর ভিত্তি করে ঋণের ঝুঁকি শ্রেণীবদ্ধ করা।</p></div>
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">স্টক মার্কেটের পূর্বাভাস</h4><p class="text-sm text-slate-600">ঐতিহাসিক ডেটার উপর ভিত্তি করে স্টকের মূল্য প্রবণতা পূর্বাভাস দেওয়া।</p></div>
+                            <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">মেডিকেল রোগ নির্ণয়</h4><p class="text-sm text-slate-600">রোগীর লক্ষণের উপর ভিত্তি করে রোগ নির্ণয় করা।</p></div>
+                             <div class="p-4 bg-white rounded-lg border border-slate-200"><h4 class="font-semibold text-lg">ইমেজ ক্লাসিফিকেশন</h4><p class="text-sm text-slate-600">ছবির বিষয়বস্তু সনাক্ত করা এবং শ্রেণীবদ্ধ করা।</p></div>
+                        </div>
+                    `
+                }
+            ]
+        },
+        evaluation: {
+            title: "মডেল মূল্যায়ন মেট্রিক্স",
+            sections: [
+                {
+                    title: "শ্রেণীকরণ এবং রিগ্রেশন মেট্রিক্স",
+                    content: `
+                        <p>র‍্যান্ডম ফরেস্ট মডেলের পারফরম্যান্স মূল্যায়নের জন্য বিভিন্ন মেট্রিক্স ব্যবহৃত হয়:</p>
+                        <h4 class="mt-4 font-semibold">শ্রেণীকরণ</h4>
+                        <ul class="list-disc list-inside space-y-1 mt-2">
+                           <li><b>Accuracy, Precision, Recall, F1-Score, ROC-AUC</b></li>
+                        </ul>
+                         <h4 class="mt-4 font-semibold">রিগ্রেশন</h4>
+                        <ul class="list-disc list-inside space-y-1 mt-2">
+                           <li><b>Mean Squared Error (MSE), Root Mean Squared Error (RMSE), R-squared (R²)</b></li>
+                        </ul>
+                    `
+                }
+            ]
+        }
+    };
+    
+    // --- Navigation and Content Rendering ---
+    const mainNav = document.getElementById('main-nav');
+    function buildAccordion(sections) {
+        return sections.map((section) => `
+            <div class="border border-slate-200 rounded-lg mb-3 bg-white shadow-sm">
+                <button class="accordion-button w-full text-left p-4 font-semibold text-lg text-slate-800 flex justify-between items-center hover:bg-slate-50" data-accordion-id="accordion-${section.title.replace(/\s/g, '')}">
+                    <span>${section.title}</span>
+                    <span class="transform transition-transform duration-300 text-emerald-600">▼</span>
+                </button>
+                <div id="accordion-${section.title.replace(/\s/g, '')}" class="accordion-content">
+                    <div class="p-4 pt-0 text-slate-700 leading-relaxed">${section.content}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderPage(targetId) {
+        const container = document.getElementById(targetId);
+        if (!container || !contentData[targetId]) return;
+        
+        const data = contentData[targetId];
+        let html = `<h2 class="text-3xl font-bold mb-6 text-slate-800">${data.title}</h2>`;
+        html += buildAccordion(data.sections);
+        container.innerHTML = html;
+        
+        container.querySelectorAll('.accordion-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const content = document.getElementById(button.dataset.accordionId);
+                const icon = button.querySelector('span:last-child');
+                const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+                
+                container.querySelectorAll('.accordion-content').forEach(el => {
+                    if (el !== content) {
+                         el.style.maxHeight = '0px';
+                         const otherButton = el.parentElement.querySelector('.accordion-button');
+                         if(otherButton) otherButton.querySelector('span:last-child').style.transform = 'rotate(0deg)';
+                    }
+                });
+
+                if (isOpen) {
+                    content.style.maxHeight = '0px';
+                    icon.style.transform = 'rotate(0deg)';
+                } else {
+                    content.style.maxHeight = content.scrollHeight + 30 + "px";
+                    icon.style.transform = 'rotate(180deg)';
+                }
+            });
+        });
+
+        if (window.renderMathInElement) {
+            renderMathInElement(container, {
+                delimiters: [ {left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false} ]
+            });
+        }
+    }
+
+    mainNav.addEventListener('click', (e) => {
+        if (e.target.tagName === 'A') {
+            const targetId = e.target.dataset.target;
+            mainNav.querySelectorAll('a').forEach(link => link.classList.remove('active'));
+            e.target.classList.add('active');
+            document.querySelectorAll('.content-section').forEach(section => section.classList.remove('active'));
+            document.getElementById(targetId).classList.add('active');
+
+            if (targetId !== 'interactive_demo' && !document.getElementById(targetId).innerHTML) {
+                renderPage(targetId);
+            }
+        }
+    });
+
+    // --- Random Forest Interactive Logic ---
+    const nEstimatorsSlider = document.getElementById('nEstimatorsSlider');
+    const maxDepthSlider = document.getElementById('maxDepthSlider');
+    const nEstimatorsValueSpan = document.getElementById('nEstimatorsValue');
+    const maxDepthValueSpan = document.getElementById('maxDepthValue');
+    const regenDataBtn = document.getElementById('regenDataBtn');
+    const individualTreesContainer = document.getElementById('individual-trees-container');
+    const chartCanvas = document.getElementById('randomForestChart');
+
+    let rfChart;
+    let trainingData = [];
+    let forest = [];
+    
+    const COLORS = {
+        CLASS_0: 'rgba(239, 68, 68, 0.7)', // red
+        CLASS_1: 'rgba(37, 99, 235, 0.7)', // blue
+        BOUNDARY_0: 'rgba(254, 226, 226, 0.5)', // red-100
+        BOUNDARY_1: 'rgba(219, 234, 254, 0.5)', // blue-100
+    };
+
+    // --- Simplified Decision Tree & Random Forest Implementation ---
+    function giniImpurity(groups, classes) {
+        const totalSize = groups.reduce((sum, group) => sum + group.length, 0);
+        let gini = 0.0;
+        for (const group of groups) {
+            if (group.length === 0) continue;
+            let score = 0.0;
+            for (const classVal of classes) {
+                const p = group.filter(row => row.class === classVal).length / group.length;
+                score += p * p;
+            }
+            gini += (1.0 - score) * (group.length / totalSize);
+        }
+        return gini;
+    }
+
+    function findBestSplit(dataset, nFeatures) {
+        const classes = [...new Set(dataset.map(row => row.class))];
+        let bestSplit = { gini: 999 };
+        const features = [];
+        const featureIndices = [0, 1]; // We only have 2 features: x, y
+        while (features.length < nFeatures) {
+            const index = featureIndices[Math.floor(Math.random() * featureIndices.length)];
+            if (!features.includes(index)) {
+                features.push(index);
+            }
+        }
+
+        for (const index of features) {
+            const featureValues = [...new Set(dataset.map(row => index === 0 ? row.x : row.y))];
+            for (const value of featureValues) {
+                const groups = [[], []];
+                for (const row of dataset) {
+                    const featureVal = index === 0 ? row.x : row.y;
+                    if (featureVal < value) groups[0].push(row); else groups[1].push(row);
+                }
+                const gini = giniImpurity(groups, classes);
+                if (gini < bestSplit.gini) {
+                    bestSplit = { gini, index, value, groups };
+                }
+            }
+        }
+        return bestSplit;
+    }
+
+    function toTerminal(group) {
+        const outcomes = group.map(row => row.class);
+        return outcomes.sort((a,b) => outcomes.filter(v => v===a).length - outcomes.filter(v => v===b).length).pop();
+    }
+    
+    function buildTreeRecursive(node, maxDepth, minSize, nFeatures, depth) {
+        if (!node.groups) return;
+        const [left, right] = node.groups;
+        delete node.groups;
+        if (!left || !right) { node.left = node.right = toTerminal(left.concat(right)); return; }
+        if (depth >= maxDepth) { node.left = toTerminal(left); node.right = toTerminal(right); return; }
+        if (left.length <= minSize) { node.left = toTerminal(left); } else { node.left = findBestSplit(left, nFeatures); buildTreeRecursive(node.left, maxDepth, minSize, nFeatures, depth + 1); }
+        if (right.length <= minSize) { node.right = toTerminal(right); } else { node.right = findBestSplit(right, nFeatures); buildTreeRecursive(node.right, maxDepth, minSize, nFeatures, depth + 1); }
+    }
+
+    function buildDecisionTree(train, maxDepth, minSize, nFeatures) {
+        const root = findBestSplit(train, nFeatures);
+        buildTreeRecursive(root, maxDepth, minSize, nFeatures, 1);
+        return root;
+    }
+    
+    function bootstrapSample(dataset) {
+        const sample = [];
+        for (let i = 0; i < dataset.length; i++) {
+            sample.push(dataset[Math.floor(Math.random() * dataset.length)]);
+        }
+        return sample;
+    }
+
+    function randomForest(train, maxDepth, minSize, nEstimators) {
+        const trees = [];
+        const nFeatures = Math.floor(Math.sqrt(2)); // We have 2 features
+        for (let i = 0; i < nEstimators; i++) {
+            const sample = bootstrapSample(train);
+            const tree = buildDecisionTree(sample, maxDepth, minSize, nFeatures);
+            trees.push(tree);
+        }
+        return trees;
+    }
+    
+    function predict(node, row) {
+        if (typeof node !== 'object' || node === null) return node;
+        const featureVal = node.index === 0 ? row.x : row.y;
+        if (featureVal < node.value) {
+            return predict(node.left, row);
+        } else {
+            return predict(node.right, row);
+        }
+    }
+    
+    function forestPredict(trees, row) {
+        const predictions = trees.map(tree => predict(tree, row));
+        return toTerminal(predictions.map(p => ({class:p}))); // re-use toTerminal for voting
+    }
+
+    // --- Visualization Logic ---
+    function renderTreeText(node, depth = 0) {
+        if (typeof node !== 'object' || node === null) {
+            return `${' '.repeat(depth*2)}predict: ${node}\n`;
+        }
+        const feature = node.index === 0 ? 'X' : 'Y';
+        let text = `${' '.repeat(depth*2)}[${feature} < ${node.value.toFixed(2)}]\n`;
+        text += renderTreeText(node.left, depth + 1);
+        text += renderTreeText(node.right, depth + 1);
+        return text;
+    }
+
+    function generateData(count = 200) {
+        trainingData = [];
+        for (let i = 0; i < count; i++) {
+            const r = Math.random() * 4.5;
+            const angle = Math.random() * 2 * Math.PI;
+            let x, y, pointClass;
+            if (i < count / 2) {
+                // Inner circle
+                x = r * Math.cos(angle) + 5;
+                y = r * Math.sin(angle) + 5;
+                pointClass = 0;
+            } else {
+                // Outer ring
+                const r_outer = r + 2.5;
+                x = r_outer * Math.cos(angle) + 5;
+                y = r_outer * Math.sin(angle) + 5;
+                pointClass = 1;
+            }
+             if (Math.random() < 0.1) pointClass = 1 - pointClass;
+            trainingData.push({ x, y, class: pointClass });
+        }
+    }
+
+    const decisionBoundaryPlugin = {
+        id: 'decisionBoundary',
+        beforeDraw: (chart) => {
+            const { ctx, chartArea: { top, left, bottom, right }, scales: { x, y } } = chart;
+            const trees = chart.options.plugins.decisionBoundary.forest;
+            if (!trees || trees.length === 0) return;
+            
+            ctx.save();
+            const resolution = 20; // Lower for faster rendering
+            const stepX = (right - left) / resolution;
+            const stepY = (bottom - top) / resolution;
+
+            for (let i = 0; i < resolution; i++) {
+                for (let j = 0; j < resolution; j++) {
+                    const gridX = left + i * stepX;
+                    const gridY = top + j * stepY;
+                    const dataX = x.getValueForPixel(gridX);
+                    const dataY = y.getValueForPixel(gridY);
+                    
+                    const prediction = forestPredict(trees, {x: dataX, y: dataY});
+                    ctx.fillStyle = prediction === 0 ? COLORS.BOUNDARY_0 : COLORS.BOUNDARY_1;
+                    ctx.fillRect(gridX, gridY, stepX, stepY);
+                }
+            }
+            ctx.restore();
+        }
+    };
+    
+    function updateRandomForest() {
+        const nEstimators = parseInt(nEstimatorsSlider.value);
+        const maxDepth = parseInt(maxDepthSlider.value);
+        nEstimatorsValueSpan.textContent = nEstimators;
+        maxDepthValueSpan.textContent = maxDepth;
+
+        forest = randomForest(trainingData, maxDepth, 1, nEstimators);
+        
+        // Render a few sample trees
+        individualTreesContainer.innerHTML = '<h3 class="font-semibold text-slate-800">নমুনা ট্রি কাঠামো</h3>';
+        const numTreesToShow = Math.min(3, forest.length);
+        for(let i=0; i<numTreesToShow; i++) {
+            const treeHTML = `<div class="tree-viz"><pre>${renderTreeText(forest[i])}</pre></div>`;
+            individualTreesContainer.innerHTML += treeHTML;
+        }
+
+        // Update chart
+        rfChart.data.datasets[0].data = trainingData;
+        rfChart.data.datasets[0].backgroundColor = trainingData.map(p => p.class === 0 ? COLORS.CLASS_0 : COLORS.CLASS_1);
+        rfChart.options.plugins.decisionBoundary.forest = forest;
+        rfChart.update();
+    }
+    
+    function initChart() {
+        generateData();
+        const ctx = chartCanvas.getContext('2d');
+        Chart.register(decisionBoundaryPlugin);
+        
+        rfChart = new Chart(ctx, {
+            type: 'scatter',
+            data: { datasets: [{ label: 'প্রশিক্ষণ ডেটা', data: [], pointRadius: 5, borderWidth: 1, borderColor: 'rgba(0, 0, 0, 0.3)' }] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { x: { min: 0, max: 10 }, y: { min: 0, max: 10 } },
+                plugins: { decisionBoundary: { forest: [] }, tooltip: { callbacks: { label: (c) => `ক্লাস: ${c.raw.class}` } } }
+            }
+        });
+        updateRandomForest();
+    }
+    
+    nEstimatorsSlider.addEventListener('input', updateRandomForest);
+    maxDepthSlider.addEventListener('input', updateRandomForest);
+    regenDataBtn.addEventListener('click', () => { generateData(); updateRandomForest(); });
+
+    initChart();
+});
+</script>
+</body>
+</html>

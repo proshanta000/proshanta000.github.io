@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ইন্টারেক্টিভ KNN ক্লাসিফায়ার</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" xintegrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI76/y2JTapbKCMKrqDhVpIENB" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js" xintegrity="sha384-X/XCfMm41YSfkJfxwcqcZQLpTsEFfs4UuMznY6krLQSdSITd08SRqGNWsoRTGjJun" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js" xintegrity="sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR" crossorigin="anonymous"></script>
+    
+    <!-- Chosen Palette: Scholarly Sky -->
+    <!-- Application Structure Plan: The SPA uses a sidebar navigation model on larger screens and a simple top-level layout for mobile, promoting easy exploration. The core of the app is the Interactive Demo, designed to be the first thing the user engages with. This 'interact-first' approach builds intuition before diving into theory. The theoretical content from the source report is broken down into structured, collapsible accordion sections under 'Theory & Math' and 'Applications', preventing information overload and allowing users to pull information as needed rather than being pushed a wall of text. -->
+    <!-- Visualization & Content Choices: 1. KNN Classification -> Goal: Visually demonstrate the core KNN mechanism. -> Viz/Method: A Chart.js scatter plot. -> Interaction: Users can click on the chart to place a new data point. A slider controls the 'k' value. As 'k' changes, the app dynamically recalculates the nearest neighbors, highlights them on the chart, and displays the majority vote and final classification in real-time. -> Justification: This makes the abstract concepts of 'neighbors', 'distance', and 'majority vote' tangible and immediately understandable. 2. Detailed Theory/Math/Applications -> Goal: Provide comprehensive, well-structured information for deeper learning. -> Viz/Method: HTML/JS-powered accordions for collapsible sections. -> Interaction: Click to expand/collapse. -> Justification: This organizes the dense text from the source report into manageable chunks, respecting the user's cognitive load and allowing for self-paced learning. KaTeX is used for clear mathematical formula rendering. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+            color: #0f172a; /* slate-900 */
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+        
+        .katex { font-size: 1.1em !important; }
+        .nav-link {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .nav-link.active {
+            color: #0369a1; /* sky-700 */
+            background-color: #e0f2fe; /* sky-100 */
+            font-weight: 600;
+        }
+        .nav-link:not(.active):hover {
+            background-color: #f1f5f9; /* slate-100 */
+        }
+        .content-section { display: none; }
+        .content-section.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .accordion-button { transition: background-color 0.2s ease-in-out; }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-in-out, padding 0.4s ease-in-out;
+            padding: 0 1.5rem;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            max-height: 60vh;
+            width: 100%;
+        }
+        #knnChart { cursor: crosshair; }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="flex flex-col md:flex-row min-h-screen bg-slate-50">
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-72 bg-white border-r border-slate-200 flex-shrink-0 p-4">
+            <header class="text-center mb-6 pt-4">
+                <h1 class="text-2xl font-bold text-slate-800">মেশিন লার্নিং গাইড </h1>
+                <p class="text-slate-600 text-sm mt-1">KNN</p>
+            </header>
+             <div style="margin-top: 20px;">
+                    <a href="index.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="index.html">হোম
+                    </a>
+            </div>
+            <div style="margin-bottom: 20px;">
+                    <a href="saus.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="saus.html">প্রাম্ভিক ধারনা
+                    </a>
+            </div>
+
+            <nav id="main-nav" class="flex flex-col space-y-1">
+                <a class="nav-link active py-3 px-4 rounded-md" data-target="interactive_demo">KNN</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="theory">থিওরি ও গণিত</a>
+                <a class="nav-link py-3 px-4 rounded-md" data-target="applications">ব্যবহারিক প্রয়োগ</a>
+                 <a class="nav-link py-3 px-4 rounded-md" data-target="evaluation">মডেল মূল্যায়ন</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+            <!-- Interactive Demo Section -->
+            <section id="interactive_demo" class="content-section active">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                    <h2 class="text-2xl font-bold mb-2 text-slate-800">KNN ক্লাসিফায়ার ডেমো</h2>
+                    <p class="text-slate-600 mb-4">
+                        চার্টে ক্লিক করে একটি নতুন ডেটা পয়েন্ট যোগ করুন। 'K' এর মান পরিবর্তন করে দেখুন কিভাবে নিকটতম প্রতিবেশী এবং চূড়ান্ত শ্রেণীকরণ পরিবর্তিত হয়।
+                    </p>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                        <div class="lg:col-span-2 chart-container">
+                            <canvas id="knnChart"></canvas>
+                        </div>
+                        <div class="space-y-6 bg-slate-50 p-4 rounded-lg border">
+                            <div>
+                                <label for="kSlider" class="block font-medium text-slate-700">প্রতিবেশীর সংখ্যা (K): <span id="kValue" class="font-bold text-sky-700 text-lg">3</span></label>
+                                <input type="range" id="kSlider" min="1" max="15" value="3" step="2" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                            </div>
+                            <div>
+                                <span class="block font-medium text-slate-700 mb-2">দূরত্বের মেট্রিক</span>
+                                <div class="flex space-x-4">
+                                    <label class="flex items-center"><input type="radio" name="distance" value="euclidean" class="h-4 w-4 text-sky-600" checked> <span class="ml-2">ইউক্লিডীয়</span></label>
+                                    <label class="flex items-center"><input type="radio" name="distance" value="manhattan" class="h-4 w-4 text-sky-600"> <span class="ml-2">ম্যানহাটন</span></label>
+                                </div>
+                            </div>
+                             <div id="resultContainer" class="mt-4 text-center bg-white p-4 rounded-md shadow-inner">
+                                <h3 class="font-semibold text-slate-800">ফলাফল</h3>
+                                <p id="classificationResult" class="text-2xl font-bold mt-2">-</p>
+                                <p id="voteResult" class="text-sm text-slate-500 mt-1"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Other sections will be rendered dynamically -->
+            <section id="theory" class="content-section"></section>
+            <section id="applications" class="content-section"></section>
+            <section id="evaluation" class="content-section"></section>
+        </main>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const contentData = {
+        theory: {
+            title: "থিওরি ও গণিত",
+            sections: [
+                {
+                    title: "KNN পরিচিতি এবং উদ্দেশ্য",
+                    content: `
+                        <p>K-Nearest Neighbors (KNN) হলো একটি সরল, কিন্তু অত্যন্ত কার্যকর সুপারভাইজড মেশিন লার্নিং অ্যালগরিদম যা মূলত শ্রেণীকরণ (Classification) এবং রিগ্রেশন (Regression) উভয় সমস্যার জন্যই ব্যবহৃত হয়। এটি একটি নন-প্যারামেট্রিক এবং লেজি লার্নিং (Lazy Learning) অ্যালগরিদম।</p>
+                        <p class="mt-2">এর মূল ধারণাটি খুবই স্বজ্ঞাত: একটি নতুন, অদেখা ডেটা পয়েন্টকে তার নিকটতম 'K' সংখ্যক প্রতিবেশী ডেটা পয়েন্টের উপর ভিত্তি করে শ্রেণীবদ্ধ বা পূর্বাভাস করা।</p>
+                    `
+                },
+                {
+                    title: "গাণিতিক ভিত্তি",
+                    content: `
+                        <h4>দূরত্বের পরিমাপ (Distance Metrics)</h4>
+                        <p>ডেটা পয়েন্টগুলির মধ্যে দূরত্ব পরিমাপ করার জন্য বিভিন্ন মেট্রিক ব্যবহৃত হয়:</p>
+                        <ul class="list-disc list-inside space-y-2 mt-2">
+                           <li><b>ইউক্লিডীয় দূরত্ব:</b> $d(p, q) = \\sqrt{\\sum_{i=1}^{n} (q_i - p_i)^2}$</li>
+                           <li><b>ম্যানহাটন দূরত্ব:</b> $d(p, q) = \\sum_{i=1}^{n} |q_i - p_i|$</li>
+                           <li><b>মিনকোস্কি দূরত্ব:</b> $d(p, q) = ( \\sum_{i=1}^{n} |q_i - p_i|^r )^{1/r}$</li>
+                        </ul>
+                        <h4 class="mt-4">শ্রেণীকরণ এবং রিগ্রেশন</h4>
+                        <p><b>শ্রেণীকরণ:</b> 'K' সংখ্যক প্রতিবেশীর মধ্যে সংখ্যাগরিষ্ঠ ভোটের মাধ্যমে নতুন ডেটা পয়েন্টের ক্লাস নির্ধারণ করা হয়।</p>
+                        <p><b>রিগ্রেশন:</b> 'K' সংখ্যক প্রতিবেশীর মানগুলির গড় বা ভারযুক্ত গড় নিয়ে নতুন ডেটা পয়েন্টের মান পূর্বাভাস করা হয়।</p>
+                    `
+                },
+                {
+                    title: "প্যারামিটার এবং হাইপারপ্যারামিটার",
+                    content: `
+                       <p>KNN এর কার্যকারিতা কয়েকটি গুরুত্বপূর্ণ হাইপারপ্যারামিটারের সঠিক নির্বাচনের উপর নির্ভর করে।</p>
+                       <div class="overflow-x-auto mt-4">
+                        <table class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">হাইপারপ্যারামিটার</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">ব্যাখ্যা</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-slate-200">
+                                <tr>
+                                    <td class="px-4 py-2 font-medium">k (প্রতিবেশীর সংখ্যা)</td>
+                                    <td class="px-4 py-2">নিকটতম প্রতিবেশীর সংখ্যা নির্ধারণ করে। ছোট k মানে জটিল মডেল, বড় k মানে সরল মডেল।</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-4 py-2 font-medium">distance_metric</td>
+                                    <td class="px-4 py-2">দুটি ডেটা পয়েন্টের মধ্যে দূরত্ব পরিমাপের পদ্ধতি (যেমন, ইউক্লিডীয়, ম্যানহাটন)।</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-4 py-2 font-medium">weights</td>
+                                    <td class="px-4 py-2">'uniform' (সমান ওজন) বা 'distance' (দূরত্ব অনুযায়ী ওজন)।</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        </div>
+                    `
+                }
+            ]
+        },
+        applications: {
+            title: "ব্যবহারিক প্রয়োগ",
+            sections: [
+                {
+                    title: "বাস্তব-বিশ্বের ব্যবহার",
+                    content: `
+                        <div class="grid md:grid-cols-2 gap-4 mt-4">
+                            <div class="p-4 bg-white rounded-lg border border-slate-200">
+                                <h4 class="font-semibold text-lg">সুপারিশ সিস্টেম</h4>
+                                <p class="text-sm text-slate-600">ব্যবহারকারীর রুচির উপর ভিত্তি করে পণ্য বা চলচ্চিত্র সুপারিশ করা।</p>
+                            </div>
+                            <div class="p-4 bg-white rounded-lg border border-slate-200">
+                                <h4 class="font-semibold text-lg">ইমেজ রিকগনিশন</h4>
+                                <p class="text-sm text-slate-600">হস্তলিখিত অঙ্ক বা ছবির বিষয়বস্তু সনাক্ত করা।</p>
+                            </div>
+                            <div class="p-4 bg-white rounded-lg border border-slate-200">
+                                <h4 class="font-semibold text-lg">চিকিৎসা রোগ নির্ণয়</h4>
+                                <p class="text-sm text-slate-600">রোগীর তথ্যের উপর ভিত্তি করে রোগের সম্ভাবনা নির্ণয় করা।</p>
+                            </div>
+                            <div class="p-4 bg-white rounded-lg border border-slate-200">
+                                <h4 class="font-semibold text-lg">গ্রাহক বিভাজন</h4>
+                                <p class="text-sm text-slate-600">বিপণনের জন্য গ্রাহকদের বিভিন্ন গ্রুপে ভাগ করা।</p>
+                            </div>
+                        </div>
+                    `
+                }
+            ]
+        },
+        evaluation: {
+            title: "মডেল মূল্যায়ন মেট্রিক্স",
+            sections: [
+                {
+                    title: "শ্রেণীকরণ মেট্রিক্স",
+                    content: `
+                        <p>KNN শ্রেণীকরণ মডেলের পারফরম্যান্স মূল্যায়নের জন্য ব্যবহৃত মেট্রিক্স:</p>
+                        <ul class="list-disc list-inside space-y-2 mt-2">
+                           <li><b>Accuracy:</b> সঠিক ভবিষ্যদ্বাণীর মোট অনুপাত।</li>
+                           <li><b>Precision:</b> ধনাত্মক ভবিষ্যদ্বাণীগুলির মধ্যে কতগুলি সঠিক।</li>
+                           <li><b>Recall:</b> প্রকৃত ধনাত্মকগুলির মধ্যে কতগুলি সনাক্ত করা হয়েছে।</li>
+                           <li><b>F1-Score:</b> Precision এবং Recall এর হারমোনিক গড়।</li>
+                           <li><b>ROC-AUC:</b> মডেলের সামগ্রিক বৈষম্যমূলক ক্ষমতা মূল্যায়নের জন্য।</li>
+                        </ul>
+                    `
+                },
+                {
+                    title: "রিগ্রেশন মেট্রিক্স",
+                    content: `
+                        <p>KNN রিগ্রেশন মডেলের পারফরম্যান্স মূল্যায়নের জন্য ব্যবহৃত মেট্রিক্স:</p>
+                         <ul class="list-disc list-inside space-y-2 mt-2">
+                           <li><b>Mean Squared Error (MSE):</b> পূর্বাভাসিত এবং প্রকৃত মানগুলির গড় বর্গ পার্থক্য।</li>
+                           <li><b>Root Mean Squared Error (RMSE):</b> MSE এর বর্গমূল, যা মূল ডেটা ইউনিটে ত্রুটি প্রকাশ করে।</li>
+                           <li><b>R-squared (R²):</b> নির্ভরশীল ভেরিয়েবলের বৈচিত্র্যের কত শতাংশ মডেল দ্বারা ব্যাখ্যা করা হয়।</li>
+                        </ul>
+                    `
+                }
+            ]
+        }
+    };
+    
+    const mainNav = document.getElementById('main-nav');
+    
+    function buildAccordion(sections) {
+        return sections.map((section, index) => `
+            <div class="border border-slate-200 rounded-lg mb-3 bg-white shadow-sm">
+                <button class="accordion-button w-full text-left p-4 font-semibold text-lg text-slate-800 flex justify-between items-center hover:bg-slate-50" data-accordion-id="accordion-${section.title.replace(/\s/g, '')}">
+                    <span>${section.title}</span>
+                    <span class="transform transition-transform duration-300 text-sky-600">▼</span>
+                </button>
+                <div id="accordion-${section.title.replace(/\s/g, '')}" class="accordion-content">
+                    <div class="p-4 pt-0 text-slate-700">${section.content}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderPage(targetId) {
+        const container = document.getElementById(targetId);
+        if (!container || !contentData[targetId]) return;
+        
+        const data = contentData[targetId];
+        let html = `<h2 class="text-3xl font-bold mb-6 text-slate-800">${data.title}</h2>`;
+        html += buildAccordion(data.sections);
+        container.innerHTML = html;
+        
+        container.querySelectorAll('.accordion-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const content = document.getElementById(button.dataset.accordionId);
+                const icon = button.querySelector('span:last-child');
+                const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+                
+                // Close all others
+                container.querySelectorAll('.accordion-content').forEach(el => {
+                    if (el !== content) {
+                         el.style.maxHeight = '0px';
+                         const otherButton = el.parentElement.querySelector('.accordion-button');
+                         if(otherButton) otherButton.querySelector('span:last-child').style.transform = 'rotate(0deg)';
+                    }
+                });
+
+                if (isOpen) {
+                    content.style.maxHeight = '0px';
+                    icon.style.transform = 'rotate(0deg)';
+                } else {
+                    content.style.maxHeight = content.scrollHeight + 30 + "px";
+                    icon.style.transform = 'rotate(180deg)';
+                }
+            });
+        });
+
+        if (window.renderMathInElement) {
+            renderMathInElement(container, {
+                delimiters: [ {left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false} ]
+            });
+        }
+    }
+
+    mainNav.addEventListener('click', (e) => {
+        if (e.target.tagName === 'A') {
+            const targetId = e.target.dataset.target;
+
+            mainNav.querySelectorAll('a').forEach(link => link.classList.remove('active'));
+            e.target.classList.add('active');
+            
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(targetId).classList.add('active');
+
+            if (targetId !== 'interactive_demo' && !document.getElementById(targetId).innerHTML) {
+                renderPage(targetId);
+            }
+        }
+    });
+    
+    // --- KNN Interactive Chart Logic ---
+    const kSlider = document.getElementById('kSlider');
+    const kValueSpan = document.getElementById('kValue');
+    const distanceRadios = document.querySelectorAll('input[name="distance"]');
+    const resultDiv = document.getElementById('classificationResult');
+    const voteDiv = document.getElementById('voteResult');
+
+    let knnChart;
+    let trainingData = [];
+    let newPoint = { x: 5, y: 5, class: -1 }; // Start with a default new point
+
+    const COLORS = {
+        CLASS_0: 'rgba(239, 68, 68, 0.7)', // red
+        CLASS_1: 'rgba(37, 99, 235, 0.7)', // blue
+        NEW_POINT: 'rgba(16, 185, 129, 1)', // green
+        NEIGHBOR_HIGHLIGHT: 'rgba(252, 211, 77, 1)' // amber
+    };
+
+    function generateTrainingData(count = 50) {
+        trainingData = [];
+        for (let i = 0; i < count; i++) {
+            let x, y, pointClass;
+            if (i < count / 2) {
+                // Class 0
+                x = Math.random() * 4.5 + 0.5;
+                y = Math.random() * 4.5 + 0.5;
+                pointClass = 0;
+            } else {
+                // Class 1
+                x = Math.random() * 4.5 + 5.0;
+                y = Math.random() * 4.5 + 5.0;
+                pointClass = 1;
+            }
+            trainingData.push({ x, y, class: pointClass });
+        }
+    }
+
+    function getDistance(p1, p2) {
+        const metric = document.querySelector('input[name="distance"]:checked').value;
+        if (metric === 'manhattan') {
+            return Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y);
+        }
+        // Default to Euclidean
+        return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+    }
+    
+    function updateKNN() {
+        const k = parseInt(kSlider.value);
+        kValueSpan.textContent = k;
+
+        // Calculate distances from the new point to all training points
+        const distances = trainingData.map(p => ({
+            ...p,
+            distance: getDistance(newPoint, p)
+        }));
+
+        // Sort by distance and get the k nearest neighbors
+        distances.sort((a, b) => a.distance - b.distance);
+        const neighbors = distances.slice(0, k);
+
+        // Perform classification by majority vote
+        const votes = { 0: 0, 1: 0 };
+        neighbors.forEach(n => {
+            votes[n.class]++;
+        });
+
+        const classifiedClass = votes[0] > votes[1] ? 0 : 1;
+        newPoint.class = classifiedClass;
+        
+        // Update result text
+        resultDiv.textContent = `শ্রেণী: ${classifiedClass === 0 ? 'লাল' : 'নীল'}`;
+        resultDiv.style.color = classifiedClass === 0 ? COLORS.CLASS_0 : COLORS.CLASS_1;
+        voteDiv.textContent = `ভোট: লাল ${votes[0]}, নীল ${votes[1]}`;
+
+        // Update chart visualization
+        updateChartVisualization(neighbors);
+    }
+    
+    function updateChartVisualization(neighbors) {
+        const neighborSet = new Set(neighbors);
+        
+        knnChart.data.datasets[0].backgroundColor = trainingData.map(p => p.class === 0 ? COLORS.CLASS_0 : COLORS.CLASS_1);
+        knnChart.data.datasets[0].borderColor = trainingData.map(p => neighborSet.has(p) ? COLORS.NEIGHBOR_HIGHLIGHT : 'transparent');
+
+        knnChart.data.datasets[1].data = [newPoint];
+        knnChart.data.datasets[1].backgroundColor = newPoint.class === 0 ? COLORS.CLASS_0 : COLORS.CLASS_1;
+        
+        knnChart.update();
+    }
+
+
+    function initKNNChart() {
+        generateTrainingData();
+        const ctx = document.getElementById('knnChart').getContext('2d');
+        knnChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'প্রশিক্ষণ ডেটা',
+                        data: trainingData,
+                        backgroundColor: trainingData.map(p => p.class === 0 ? COLORS.CLASS_0 : COLORS.CLASS_1),
+                        pointRadius: 6,
+                        borderWidth: 3,
+                        borderColor: 'transparent'
+                    },
+                    {
+                        label: 'নতুন ডেটা পয়েন্ট',
+                        data: [newPoint],
+                        backgroundColor: COLORS.NEW_POINT,
+                        pointRadius: 8,
+                        pointStyle: 'star',
+                        borderWidth: 2,
+                        borderColor: 'white'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { min: 0, max: 10 },
+                    y: { min: 0, max: 10 }
+                },
+                onClick: (e) => {
+                    const canvasPosition = Chart.helpers.getRelativePosition(e, knnChart);
+                    newPoint.x = knnChart.scales.x.getValueForPixel(canvasPosition.x);
+                    newPoint.y = knnChart.scales.y.getValueForPixel(canvasPosition.y);
+                    updateKNN();
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                if (context.datasetIndex === 1) return 'নতুন পয়েন্ট';
+                                return `ক্লাস: ${context.raw.class}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        updateKNN(); // Initial calculation
+    }
+
+    // Event Listeners
+    kSlider.addEventListener('input', updateKNN);
+    distanceRadios.forEach(radio => radio.addEventListener('change', updateKNN));
+
+    // Initial render
+    initKNNChart();
+    
+});
+</script>
+</body>
+</html>

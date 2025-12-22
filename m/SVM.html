@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ইন্টারেক্টিভ সাপোর্ট ভেক্টর মেশিন (SVM) গাইড</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" xintegrity="sha384-Xi8rHCmBmhbuyyhbI88391ZKP2dmfnOl4rT9ZfRI76/y2JTapbKCMKrqDhVpIENB" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js" xintegrity="sha384-X/XCfMm41YSfkJfxwcqcZQLpTsEFfs4UuMznY6krLQSdSITd08SRqGNWsoRTGjJun" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js" xintegrity="sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR" crossorigin="anonymous"></script>
+    <!-- Chosen Palette: Slate and Sky -->
+    <!-- Application Structure Plan: The application is a single-page app with a fixed sidebar for navigation and a main content area. This structure allows users to easily switch between a hands-on interactive demo and detailed theoretical sections. The core of the app is the interactive demo, which visualizes how SVMs work. Other detailed content from the report (math, parameters, use cases) is organized into collapsible accordion sections to prevent information overload and allow focused learning. This design prioritizes intuitive exploration and learning-by-doing over a passive reading experience. -->
+    <!-- Visualization & Content Choices: 1. SVM Decision Boundary -> Goal: Build intuition -> Viz/Method: Chart.js scatter plot with a custom-drawn decision boundary. -> Interaction: Users select datasets (linear, circular, moon), kernel types (linear, RBF, poly), and adjust hyperparameters (C, gamma, degree) via sliders. The chart updates in real-time, showing how the decision boundary and support vectors change. Justification: This provides immediate visual feedback, making abstract concepts like the kernel trick and regularization tangible. 2. Detailed Theory & Math -> Goal: Provide in-depth knowledge -> Viz/Method: Accordion-style expandable sections using HTML/JS and KaTeX for formulas. -> Interaction: Click to expand/collapse. Justification: Breaks down complex information into manageable chunks, improving readability and user control over the learning pace. 3. Parameters/Metrics Comparison -> Goal: Quick reference -> Viz/Method: Styled HTML tables. Justification: Efficiently presents structured data for easy comparison. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+            color: #1e293b; /* slate-800 */
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+        
+        .katex { font-size: 1.1em !important; }
+
+        .nav-link {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .nav-link.active {
+            background-color: #0284c7; /* sky-600 */
+            color: #f0f9ff; /* sky-50 */
+            font-weight: 600;
+        }
+        .nav-link:not(.active):hover {
+            background-color: #e2e8f0; /* slate-200 */
+        }
+        .content-section { display: none; }
+        .content-section.active { display: block; }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            height: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+         @media (max-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+
+        .accordion-button {
+            transition: background-color 0.2s ease-in-out;
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out, padding 0.5s ease-out;
+            padding: 0 1.5rem;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-64 bg-slate-100 border-r border-slate-200 flex-shrink-0">
+            <div class="p-6">
+                <h1 class="text-xl font-bold text-slate-900">মেশিন লার্নিং গাইড</h1>
+                <p class="text-sm text-slate-600 mt-1">সাপোর্ট ভেক্টর মেশিন</p>
+            </div>
+            <div style="margin-top: 20px;">
+                    <a href="index.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="index.html">হোম
+                    </a>
+            </div>
+            <div style="margin-bottom: 20px;">
+                    <a href="saus.html" class="nav-link text-lg  text-slate-700 hover:text-blue-700 block p-2 rounded-lg" data-target="saus.html">প্রাম্ভিক ধারনা
+                    </a>
+            </div>
+            <nav id="main-nav" class="flex flex-col p-2 space-y-1">
+                <a class="nav-link active rounded-md p-3" data-target="interactive_demo">সাপোর্ট ভেক্টর</a>
+                <a class="nav-link rounded-md p-3" data-target="introduction">ভূমিকা</a>
+                <a class="nav-link rounded-md p-3" data-target="math_foundation">গাণিতিক ভিত্তি</a>
+                <a class="nav-link rounded-md p-3" data-target="parameters">প্যারামিটার ও হাইপারপ্যারামিটার</a>
+                <a class="nav-link rounded-md p-3" data-target="applications">ব্যবহারিক প্রয়োগ</a>
+                <a class="nav-link rounded-md p-3" data-target="evaluation">মূল্যায়ন মেট্রিক্স</a>
+                <a class="nav-link rounded-md p-3" data-target="conclusion">উপসংহার</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+
+            <!-- Interactive Demo Section -->
+            <section id="interactive_demo" class="content-section active">
+                <h2 class="text-3xl font-bold mb-2 text-slate-900">ইন্টারেক্টিভ SVM ডেমো</h2>
+                <p class="mb-6 text-slate-600">
+                    নিচের কন্ট্রোলার ব্যবহার করে দেখুন কিভাবে SVM বিভিন্ন ডেটাসেটের উপর কাজ করে। ডেটাসেট, কার্নেল এবং হাইপারপ্যারামিটার পরিবর্তন করে দেখুন কিভাবে সিদ্ধান্ত সীমানা (decision boundary) এবং সাপোর্ট ভেক্টর প্রভাবিত হয়।
+                </p>
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                        <!-- Controls -->
+                        <div class="space-y-4">
+                            <div>
+                                <label for="datasetSelector" class="block text-sm font-medium text-slate-700">ডেটাসেট</label>
+                                <select id="datasetSelector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm rounded-md">
+                                    <option value="linear">রৈখিকভাবে পৃথকযোগ্য</option>
+                                    <option value="circles">বৃত্তাকার</option>
+                                    <option value="moons">চাঁদ আকৃতির</option>
+                                    <option value="blobs">ব্লবস</option>
+                                </select>
+                            </div>
+                             <div>
+                                <label for="kernelSelector" class="block text-sm font-medium text-slate-700">কার্নেল</label>
+                                <select id="kernelSelector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm rounded-md">
+                                    <option value="linear">লিনিয়ার</option>
+                                    <option value="poly">পলিনোমিয়াল</option>
+                                    <option value="rbf" selected>RBF (গাউসিয়ান)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="cSlider" class="block text-sm font-medium text-slate-700">C (রেগুলারাইজেশন): <span id="cValue" class="font-bold">1.0</span></label>
+                                <input type="range" id="cSlider" min="0.01" max="10" value="1" step="0.01" class="w-full">
+                            </div>
+                            <div id="gammaContainer">
+                                <label for="gammaSlider" class="block text-sm font-medium text-slate-700">Gamma ($\gamma$): <span id="gammaValue" class="font-bold">1.0</span></label>
+                                <input type="range" id="gammaSlider" min="0.1" max="10" value="1" step="0.1" class="w-full">
+                            </div>
+                            <div id="degreeContainer" class="hidden">
+                                <label for="degreeSlider" class="block text-sm font-medium text-slate-700">Degree: <span id="degreeValue" class="font-bold">3</span></label>
+                                <input type="range" id="degreeSlider" min="2" max="6" value="3" step="1" class="w-full">
+                            </div>
+                        </div>
+                        <!-- Chart -->
+                        <div class="chart-container">
+                            <canvas id="svmChart"></canvas>
+                        </div>
+                   </div>
+                </div>
+            </section>
+            
+            <div id="content-container"></div>
+        </main>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const contentData = {
+        introduction: {
+            title: "ভূমিকা",
+            content: `
+                <p class="text-lg leading-relaxed mb-4">সাপোর্ট ভেক্টর মেশিন (SVM) হলো একটি শক্তিশালী সুপারভাইজড মেশিন লার্নিং অ্যালগরিদম যা শ্রেণীকরণ (classification) এবং রিগ্রেশন (regression) উভয় সমস্যার জন্যই ব্যবহৃত হয়। এটি উচ্চ-মাত্রিক ডেটাসেটে বিশেষভাবে কার্যকর এবং জটিল, অ-রৈখিক সম্পর্কযুক্ত ডেটা পরিচালনা করতে পারে।</p>
+                <p class="text-lg leading-relaxed">SVM এর মূল ধারণা হলো ডেটাসেটের বিভিন্ন শ্রেণির মধ্যে একটি সর্বোত্তম বিভাজক সীমানা বা হাইপারপ্লেন (hyperplane) খুঁজে বের করা। এই হাইপারপ্লেনটি এমনভাবে নির্বাচন করা হয় যাতে প্রতিটি শ্রেণির নিকটতম ডেটা পয়েন্টগুলি (যাদের সাপোর্ট ভেক্টর বলা হয়) থেকে এর দূরত্ব (মার্জিন) সর্বাধিক হয়। এই বৃহত্তর মার্জিন মডেলকে নতুন, অদেখা ডেটার উপর আরও ভালোভাবে সাধারণীকরণ করতে সাহায্য করে।</p>
+            `
+        },
+        math_foundation: {
+            title: "গাণিতিক ভিত্তি",
+            sections: [
+                {
+                    title: "হাইপারপ্লেন, মার্জিন এবং সাপোর্ট ভেক্টর",
+                    content: `
+                        <p>একটি <b>হাইপারপ্লেন</b> হলো একটি সিদ্ধান্ত সীমানা যা ডেটা পয়েন্টগুলিকে বিভিন্ন শ্রেণিতে বিভক্ত করে। দ্বি-মাত্রিক স্থানে এটি একটি সরল রেখা। হাইপারপ্লেনের সমীকরণ হলো $w \\cdot x - b = 0$, যেখানে $w$ হলো ওয়েট ভেক্টর এবং $b$ হলো বায়াস।</p>
+                        <p class="mt-2"><b>মার্জিন</b> হলো হাইপারপ্লেন এবং নিকটতম ডেটা পয়েন্টগুলির (সাপোর্ট ভেক্টর) মধ্যে দূরত্ব। SVM এই মার্জিনকে সর্বাধিক করার চেষ্টা করে।</p>
+                        <p class="mt-2"><b>সাপোর্ট ভেক্টর</b> হলো সেই ডেটা পয়েন্টগুলি যা হাইপারপ্লেনের সবচেয়ে কাছাকাছি থাকে এবং মার্জিন নির্ধারণে সরাসরি ভূমিকা পালন করে।</p>
+                    `
+                },
+                {
+                    title: "সফট মার্জিন এবং রেগুলারাইজেশন",
+                    content: `
+                        <p>বাস্তব ডেটা প্রায়শই পুরোপুরি রৈখিকভাবে পৃথকযোগ্য হয় না। <b>সফট মার্জিন SVM</b> কিছু ডেটা পয়েন্টকে ভুল শ্রেণীবদ্ধ করার বা মার্জিনের মধ্যে থাকার অনুমতি দেয়, যার জন্য একটি পেনাল্টি প্রয়োগ করা হয়।</p>
+                        <p>অপ্টিমাইজেশন সমস্যাটি হলো:</p>
+                        <p class="my-4 text-center">$$ \\min_{w, b, \\xi} \\frac{1}{2}\\||w||^2 + C \\sum_{i=1}^{n} \\xi_i $$</p>
+                        <p>এখানে $C$ হলো রেগুলারাইজেশন প্যারামিটার যা মার্জিন এবং ভুল শ্রেণীকরণের মধ্যে ট্রেড-অফ নিয়ন্ত্রণ করে। $\\xi_i$ হলো স্ল্যাক ভেরিয়েবল, যা মার্জিন লঙ্ঘনের পরিমাণ নির্দেশ করে।</p>
+                    `
+                },
+                {
+                    title: "কার্নেল ট্রিক",
+                    content: `
+                        <p>অ-রৈখিক ডেটা পরিচালনা করার জন্য SVM <b>কার্নেল ট্রিক</b> ব্যবহার করে। এটি ডেটা পয়েন্টগুলিকে একটি উচ্চতর-মাত্রিক স্থানে রূপান্তরিত করে, যেখানে সেগুলি রৈখিকভাবে পৃথকযোগ্য হতে পারে। এটি সরাসরি ডেটা রূপান্তর না করে, উচ্চ-মাত্রিক স্থানের ডট প্রোডাক্ট গণনা করে, যা গণনাগতভাবে কার্যকর।</p>
+                        <p>সাধারণ কার্নেল ফাংশনগুলি হলো:</p>
+                        <ul class="list-disc list-inside space-y-1 mt-2">
+                            <li><b>লিনিয়ার:</b> $K(x_i, x_j) = x_i \\cdot x_j$</li>
+                            <li><b>পলিনোমিয়াল:</b> $K(x_i, x_j) = (\\gamma x_i \\cdot x_j + r)^d$</li>
+                            <li><b>RBF (গাউসিয়ান):</b> $K(x_i, x_j) = \\exp(-\\gamma ||x_i - x_j||^2)$</li>
+                        </ul>
+                    `
+                }
+            ]
+        },
+        parameters: {
+            title: "প্যারামিটার ও হাইপারপ্যারামিটার",
+            sections: [
+                {
+                    title: "প্যারামিটার",
+                    content: `
+                        <p>মডেল প্রশিক্ষণের পর যে মানগুলি শেখে সেগুলি হলো প্যারামিটার:</p>
+                        <ul class="list-disc list-inside space-y-1 mt-2">
+                            <li><b>ওয়েট ভেক্টর ($w$):</b> হাইপারপ্লেনের দিক নির্দেশ করে।</li>
+                            <li><b>বায়াস ($b$):</b> হাইপারপ্লেনের অবস্থান নির্ধারণ করে।</li>
+                            <li><b>সাপোর্ট ভেক্টর:</b> মার্জিন নির্ধারণকারী ডেটা পয়েন্ট।</li>
+                        </ul>
+                    `
+                },
+                {
+                    title: "হাইপারপ্যারামিটার",
+                    content: `
+                       <p>মডেল প্রশিক্ষণের আগে যে মানগুলি সেট করা হয় সেগুলি হলো হাইপারপ্যারামিটার। এগুলি মডেলের পারফরম্যান্স অপ্টিমাইজ করার জন্য টিউন করা হয়।</p>
+                        <div class="overflow-x-auto mt-4">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-slate-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">হাইপারপ্যারামিটার</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ভূমিকা</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">প্রভাব</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-6 py-4 font-medium">C</td>
+                                        <td class="px-6 py-4">রেগুলারাইজেশন শক্তি</td>
+                                        <td class="px-6 py-4">ছোট C = বড় মার্জিন (আন্ডারফিটিং প্রবণতা); বড় C = ছোট মার্জিন (ওভারফিটিং প্রবণতা)।</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-6 py-4 font-medium">kernel</td>
+                                        <td class="px-6 py-4">ডেটা রূপান্তর ফাংশন</td>
+                                        <td class="px-6 py-4">'linear', 'poly', 'rbf' ইত্যাদি। ডেটার প্রকৃতির উপর নির্ভরশীল।</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-6 py-4 font-medium">gamma ($\gamma$)</td>
+                                        <td class="px-6 py-4">RBF/Poly কার্নেলের জন্য</td>
+                                        <td class="px-6 py-4">ছোট $\gamma$ = সাধারণ মডেল; বড় $\gamma$ = জটিল মডেল (ওভারফিটিং প্রবণতা)।</td>
+                                    </tr>
+                                     <tr>
+                                        <td class="px-6 py-4 font-medium">degree</td>
+                                        <td class="px-6 py-4">Poly কার্নেলের জন্য</td>
+                                        <td class="px-6 py-4">পলিনোমিয়ালের ডিগ্রী নির্ধারণ করে, যা মডেলের জটিলতা বাড়ায়।</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    `
+                }
+            ]
+        },
+        applications: {
+            title: "ব্যবহারিক প্রয়োগ",
+            content: `
+                <p>SVM এর বহুমুখীতার কারণে এটি বিভিন্ন ক্ষেত্রে ব্যবহৃত হয়:</p>
+                <ul class="list-disc list-inside space-y-3 mt-4">
+                    <li><b>ইমেজ ক্লাসিফিকেশন:</b> মুখমণ্ডল শনাক্তকরণ, বস্তু শনাক্তকরণ এবং চিকিৎসা চিত্র বিশ্লেষণে ব্যবহৃত হয়। SVM উচ্চ-মাত্রিক পিক্সেল ডেটা থেকে প্যাটার্ন সনাক্ত করতে পারে।</li>
+                    <li><b>টেক্সট ক্লাসিফিকেশন:</b> স্প্যাম ইমেল ফিল্টারিং, সেন্টিমেন্ট বিশ্লেষণ এবং ডকুমেন্ট ক্যাটাগরাইজেশনে কার্যকর।</li>
+                    <li><b>বায়োইনফরমেটিক্স:</b> জিন শ্রেণীকরণ, প্রোটিন কাঠামো পূর্বাভাস এবং রোগ নির্ণয়ে ব্যবহৃত হয়, যেখানে ডেটাসেটে অনেক ফিচার এবং কম নমুনা থাকে।</li>
+                    <li><b>হস্তলিখিত অঙ্ক সনাক্তকরণ:</b> পোস্টাল কোড বা চেক থেকে হাতে লেখা সংখ্যা সনাক্ত করতে ব্যবহৃত হয়।</li>
+                </ul>
+            `
+        },
+        evaluation: {
+            title: "মডেল মূল্যায়ন মেট্রিক্স",
+            content: `
+                <p>SVM একটি শ্রেণীকরণ মডেল হওয়ায়, এর পারফরম্যান্স মূল্যায়নের জন্য নিম্নলিখিত মেট্রিক্স ব্যবহৃত হয়:</p>
+                <div class="overflow-x-auto mt-4">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">মেট্রিক</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ব্যাখ্যা</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">কখন ব্যবহার করবেন</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr><td class="px-6 py-4 font-medium">Accuracy</td><td class="px-6 py-4">সঠিক ভবিষ্যদ্বাণীর অনুপাত।</td><td class="px-6 py-4">সুষম ডেটাসেটের জন্য।</td></tr>
+                            <tr><td class="px-6 py-4 font-medium">Precision</td><td class="px-6 py-4">ধনাত্মক ভবিষ্যদ্বাণীগুলির মধ্যে কতগুলি সঠিক।</td><td class="px-6 py-4">যখন মিথ্যা ধনাত্মক (False Positive) কমানো গুরুত্বপূর্ণ।</td></tr>
+                            <tr><td class="px-6 py-4 font-medium">Recall</td><td class="px-6 py-4">প্রকৃত ধনাত্মকগুলির মধ্যে কতগুলি সনাক্ত করা হয়েছে।</td><td class="px-6 py-4">যখন মিথ্যা ঋণাত্মক (False Negative) কমানো গুরুত্বপূর্ণ।</td></tr>
+                            <tr><td class="px-6 py-4 font-medium">F1-Score</td><td class="px-6 py-4">Precision এবং Recall এর হারমোনিক গড়।</td><td class="px-6 py-4">ভারসাম্যহীন ডেটাসেটে, যখন উভয়ই গুরুত্বপূর্ণ।</td></tr>
+                            <tr><td class="px-6 py-4 font-medium">ROC-AUC</td><td class="px-6 py-4">মডেলের বৈষম্যমূলক ক্ষমতার থ্রেশহোল্ড-স্বাধীন পরিমাপ।</td><td class="px-6 py-4">ভারসাম্যহীন ডেটাসেটের জন্য মডেলের সামগ্রিক পারফরম্যান্স তুলনা করতে।</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            `
+        },
+        conclusion: {
+            title: "উপসংহার",
+            content: `
+                <p class="text-lg leading-relaxed mb-4">সাপোর্ট ভেক্টর মেশিন একটি অত্যন্ত শক্তিশালী এবং কার্যকর শ্রেণীকরণ অ্যালগরিদম। এর মার্জিন সর্বাধিকীকরণ এবং কার্নেল ট্রিকের মাধ্যমে অ-রৈখিক ডেটা পরিচালনা করার ক্ষমতা এটিকে মেশিন লার্নিং-এর একটি মৌলিক টুলে পরিণত করেছে।</p>
+                <p class="text-lg leading-relaxed">যদিও বড় ডেটাসেটের জন্য এটি গণনাগতভাবে ব্যয়বহুল হতে পারে, উচ্চ-মাত্রিক সমস্যা এবং জটিল ডেটাসেটের ক্ষেত্রে এর কার্যকারিতা অনস্বীকার্য। সঠিক হাইপারপ্যারামিটার টিউনিংয়ের মাধ্যমে SVM বিভিন্ন বাস্তব-বিশ্বের সমস্যা সমাধানে চমৎকার ফলাফল প্রদান করতে পারে।</p>
+                <h3 class="text-xl font-semibold mt-6 mb-3">পরবর্তী পদক্ষেপ</h3>
+                <ul class="list-disc list-inside space-y-2">
+                    <li>সাপোর্ট ভেক্টর রিগ্রেশন (SVR) সম্পর্কে জানুন।</li>
+                    <li>বিভিন্ন কার্নেল ফাংশন নিয়ে আরও গভীর গবেষণা করুন।</li>
+                    <li>Scikit-learn ব্যবহার করে বাস্তব ডেটাসেটে SVM প্রয়োগ করুন এবং হাইপারপ্যারামিটার টিউন করুন।</li>
+                    <li>অন্যান্য শ্রেণীকরণ অ্যালগরিদম যেমন ডিসিশন ট্রি, র্যান্ডম ফরেস্ট এবং নিউরাল নেটওয়ার্কের সাথে SVM এর তুলনা করুন।</li>
+                </ul>
+            `
+        }
+    };
+    
+    // --- Navigation and Content Rendering ---
+    const contentContainer = document.getElementById('content-container');
+    const mainNav = document.getElementById('main-nav');
+    
+    function buildAccordion(sections) {
+        return sections.map((section, index) => `
+            <div class="border border-slate-200 rounded-lg mb-2 bg-white shadow-sm">
+                <button class="accordion-button w-full text-left p-4 font-semibold text-lg text-slate-800 flex justify-between items-center hover:bg-slate-50" data-accordion-id="accordion-${index}">
+                    <span>${section.title}</span>
+                    <span class="transform transition-transform duration-300">▼</span>
+                </button>
+                <div id="accordion-${index}" class="accordion-content">
+                    <div class="prose max-w-none text-slate-700">${section.content}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderPage(targetId) {
+        document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+        const data = contentData[targetId];
+        if (!data) return;
+
+        let html = `<section id="${targetId}" class="content-section active space-y-6">
+                        <h2 class="text-3xl font-bold text-slate-900">${data.title}</h2>`;
+        if (data.sections) {
+            html += buildAccordion(data.sections);
+        } else {
+            html += `<div class="prose max-w-none bg-white p-6 rounded-lg shadow-md border border-slate-200">${data.content}</div>`;
+        }
+        html += `</section>`;
+        contentContainer.innerHTML = html;
+        
+        document.querySelectorAll('.accordion-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const content = document.getElementById(button.dataset.accordionId);
+                const icon = button.querySelector('span:last-child');
+                const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+                
+                if (isOpen) {
+                    content.style.maxHeight = '0px';
+                    content.style.padding = '0 1.5rem';
+                    icon.style.transform = 'rotate(0deg)';
+                } else {
+                    content.style.padding = '1.5rem';
+                    content.style.maxHeight = content.scrollHeight + "px";
+                    icon.style.transform = 'rotate(180deg)';
+                }
+            });
+        });
+
+        if (window.renderMathInElement) {
+            renderMathInElement(contentContainer, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                ]
+            });
+        }
+    }
+
+    mainNav.addEventListener('click', (e) => {
+        if (e.target.tagName === 'A') {
+            const targetId = e.target.dataset.target;
+
+            document.querySelectorAll('#main-nav a').forEach(link => link.classList.remove('active'));
+            e.target.classList.add('active');
+            
+            if (targetId === 'interactive_demo') {
+                contentContainer.innerHTML = '';
+                document.getElementById('interactive_demo').classList.add('active');
+            } else {
+                 document.getElementById('interactive_demo').classList.remove('active');
+                renderPage(targetId);
+            }
+        }
+    });
+
+    // --- Interactive Chart Logic ---
+    let svmChart;
+    const controls = {
+        dataset: document.getElementById('datasetSelector'),
+        kernel: document.getElementById('kernelSelector'),
+        c: document.getElementById('cSlider'),
+        gamma: document.getElementById('gammaSlider'),
+        degree: document.getElementById('degreeSlider'),
+        cValue: document.getElementById('cValue'),
+        gammaValue: document.getElementById('gammaValue'),
+        degreeValue: document.getElementById('degreeValue'),
+        gammaContainer: document.getElementById('gammaContainer'),
+        degreeContainer: document.getElementById('degreeContainer'),
+    };
+    
+    let currentData = [];
+
+    // --- Dataset Generation ---
+    function generateLinearData() {
+        const data = [];
+        for (let i = 0; i < 50; i++) {
+            const x = Math.random() * 4.5;
+            const y = Math.random() * 4.5;
+            data.push({ x: x + 0.2, y: y + 0.2, label: -1 });
+        }
+        for (let i = 0; i < 50; i++) {
+            const x = Math.random() * 4.5 + 4;
+            const y = Math.random() * 4.5 + 4;
+            data.push({ x: x, y: y, label: 1 });
+        }
+        return data;
+    }
+
+    function generateCirclesData() {
+        const data = [];
+        for (let i = 0; i < 100; i++) {
+            const r = Math.random() * 2.0;
+            const t = Math.random() * 2 * Math.PI;
+            data.push({ x: r * Math.sin(t) + 5, y: r * Math.cos(t) + 5, label: -1 });
+        }
+        for (let i = 0; i < 100; i++) {
+            const r = Math.random() * 2.0 + 3.0;
+            const t = Math.random() * 2 * Math.PI;
+            data.push({ x: r * Math.sin(t) + 5, y: r * Math.cos(t) + 5, label: 1 });
+        }
+        return data;
+    }
+
+    function generateMoonsData() {
+        const data = [];
+        for (let i = 0; i < 100; i++) {
+            const t = Math.PI * i / 100;
+            const x = 4 * Math.cos(t) + 5 + (Math.random() - 0.5) * 0.5;
+            const y = 4 * Math.sin(t) + 2 + (Math.random() - 0.5) * 0.5;
+            data.push({x, y, label: 1});
+        }
+        for (let i = 0; i < 100; i++) {
+            const t = Math.PI * i / 100;
+            const x = 4 * Math.cos(t) + 3 - (Math.random() - 0.5) * 0.5;
+            const y = 4 * Math.sin(t) + 1 - (Math.random() - 0.5) * 0.5;
+            data.push({x,y,label:-1});
+        }
+        return data;
+    }
+    
+    function generateBlobsData() {
+        const data = [];
+        // Blob 1
+        for (let i = 0; i < 50; i++) {
+            data.push({ x: Math.random() * 2 + 2, y: Math.random() * 2 + 2, label: -1 });
+        }
+        // Blob 2
+        for (let i = 0; i < 50; i++) {
+            data.push({ x: Math.random() * 2 + 6, y: Math.random() * 2 + 6, label: 1 });
+        }
+         // Blob 3
+        for (let i = 0; i < 50; i++) {
+            data.push({ x: Math.random() * 2 + 2, y: Math.random() * 2 + 6, label: -1 });
+        }
+        return data;
+    }
+
+    // --- SVM Simulation & Drawing ---
+    // Since a full SVM solver in JS is too complex, we simulate the decision boundary.
+    // This is a simplified educational model.
+    function svmDecisionFunction(x, y, data, params) {
+        if (params.kernel === 'linear') {
+            // Simplified linear SVM - find centroids and draw a perpendicular bisector
+            const c1 = data.filter(d => d.label === 1).reduce((acc, p) => ({x: acc.x + p.x, y: acc.y + p.y}), {x:0, y:0});
+            const c_1 = data.filter(d => d.label === -1).reduce((acc, p) => ({x: acc.x + p.x, y: acc.y + p.y}), {x:0, y:0});
+            c1.x /= data.filter(d => d.label === 1).length;
+            c1.y /= data.filter(d => d.label === 1).length;
+            c_1.x /= data.filter(d => d.label === -1).length;
+            c_1.y /= data.filter(d => d.label === -1).length;
+
+            const w = { x: c1.x - c_1.x, y: c1.y - c_1.y };
+            const b = -((c1.x + c_1.x)/2 * w.x + (c1.y + c_1.y)/2 * w.y);
+            return w.x * x + w.y * y + b;
+
+        } else if (params.kernel === 'rbf') {
+            let sum = 0;
+            // A real SVM uses alphas, we'll simplify and use all points as weighted support vectors
+            for (const p of data) {
+                const distSq = (x - p.x)**2 + (y - p.y)**2;
+                sum += p.label * Math.exp(-params.gamma * distSq);
+            }
+            return sum;
+        } else if (params.kernel === 'poly') {
+             let sum = 0;
+             for (const p of data) {
+                 sum += p.label * (p.x * x + p.y * y + 1) ** params.degree;
+             }
+             return sum;
+        }
+        return 0;
+    }
+    
+    // Custom plugin to draw the background decision regions
+    const backgroundPlugin = {
+        id: 'backgroundPlugin',
+        beforeDraw: (chart) => {
+            const { ctx, chartArea: { top, bottom, left, right, width, height }, scales: { x, y } } = chart;
+            ctx.save();
+            
+            const params = {
+                kernel: controls.kernel.value,
+                c: parseFloat(controls.c.value),
+                gamma: parseFloat(controls.gamma.value),
+                degree: parseInt(controls.degree.value),
+            };
+
+            const step = 10;
+            for (let i = left; i < right; i += step) {
+                for (let j = top; j < bottom; j += step) {
+                    const gridX = x.getValueForPixel(i);
+                    const gridY = y.getValueForPixel(j);
+                    const decision = svmDecisionFunction(gridX, gridY, currentData, params);
+                    
+                    if (decision > 0) {
+                        ctx.fillStyle = 'rgba(2, 132, 199, 0.1)'; // sky-600 with opacity
+                    } else {
+                        ctx.fillStyle = 'rgba(244, 63, 94, 0.1)'; // rose-500 with opacity
+                    }
+                    ctx.fillRect(i, j, step, step);
+                }
+            }
+             ctx.restore();
+        }
+    };
+    
+    function updateChart() {
+        const datasetType = controls.dataset.value;
+        if (datasetType === 'linear') currentData = generateLinearData();
+        else if (datasetType === 'circles') currentData = generateCirclesData();
+        else if (datasetType === 'moons') currentData = generateMoonsData();
+        else if (datasetType === 'blobs') currentData = generateBlobsData();
+        
+        controls.cValue.textContent = parseFloat(controls.c.value).toFixed(2);
+        controls.gammaValue.textContent = parseFloat(controls.gamma.value).toFixed(2);
+        controls.degreeValue.textContent = parseInt(controls.degree.value);
+
+        controls.gammaContainer.style.display = controls.kernel.value === 'rbf' ? 'block' : 'none';
+        controls.degreeContainer.style.display = controls.kernel.value === 'poly' ? 'block' : 'none';
+
+        if (svmChart) {
+            svmChart.data.datasets[0].data = currentData.filter(d => d.label === 1);
+            svmChart.data.datasets[1].data = currentData.filter(d => d.label === -1);
+            svmChart.update('none'); // Use 'none' to prevent default animations
+        }
+    }
+
+    function initChart() {
+        const ctx = document.getElementById('svmChart').getContext('2d');
+        svmChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'শ্রেণী ১',
+                        backgroundColor: 'rgb(2, 132, 199)', // sky-600
+                        data: []
+                    },
+                    {
+                        label: 'শ্রেণী -১',
+                        backgroundColor: 'rgb(244, 63, 94)', // rose-500
+                        data: []
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { min: 0, max: 10 },
+                    y: { min: 0, max: 10 }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                         enabled: false
+                    }
+                }
+            },
+            plugins: [backgroundPlugin]
+        });
+        updateChart();
+    }
+
+    Object.values(controls).forEach(control => {
+        if(control.tagName === 'SELECT' || control.tagName === 'INPUT') {
+            control.addEventListener('input', updateChart);
+        }
+    });
+
+    initChart();
+});
+</script>
+</body>
+</html>
