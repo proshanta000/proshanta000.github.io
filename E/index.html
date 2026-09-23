@@ -1,0 +1,363 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Finance Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js CDN with fallback handling in script.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+        <div class="nav-container">
+            <div class="brand">
+                <span class="logo-icon">৳</span>
+                <span class="brand-name">FinanceTracker</span>
+            </div>
+            <nav class="nav-links" id="navLinks">
+                <button class="nav-btn active" data-tab="dashboard">Dashboard</button>
+                <button class="nav-btn" data-tab="transactions">Transactions</button>
+                <button class="nav-btn" data-tab="monthly">Monthly Summary</button>
+                <button class="nav-btn" data-tab="reports">Reports & Charts</button>
+                <button class="nav-btn" data-tab="backup">Backup & Settings</button>
+            </nav>
+            <div class="header-actions">
+                <button id="themeToggleBtn" class="icon-btn" title="Toggle Dark/Light Mode">🌙</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Application Container -->
+    <main class="main-content">
+        <!-- Status Indicator Toast -->
+        <div id="statusToast" class="status-toast hidden">
+            <span id="statusToastMessage">✓ Data saved locally</span>
+        </div>
+
+        <!-- 1. DASHBOARD VIEW -->
+        <section id="dashboard" class="tab-content active">
+            <div class="dashboard-header">
+                <h2>Financial Overview</h2>
+                <div class="opening-balance-card">
+                    <label for="openingBalanceInput">Opening Balance:</label>
+                    <div class="input-group-inline">
+                        <span class="currency-symbol">৳</span>
+                        <input type="number" id="openingBalanceInput" step="0.01" value="0.00">
+                        <button id="saveOpeningBalanceBtn" class="btn btn-secondary btn-sm">Set</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card balance">
+                    <h3>Current On-Hand Balance</h3>
+                    <p class="stat-amount" id="dashOnHandBalance">৳0.00</p>
+                    <small>Opening + Income − Expense − Other</small>
+                </div>
+                <div class="stat-card income">
+                    <h3>Total Income</h3>
+                    <p class="stat-amount" id="dashTotalIncome">৳0.00</p>
+                </div>
+                <div class="stat-card expense">
+                    <h3>Total Expenses</h3>
+                    <p class="stat-amount" id="dashTotalExpenses">৳0.00</p>
+                </div>
+                <div class="stat-card other">
+                    <h3>Total Other Costs</h3>
+                    <p class="stat-amount" id="dashTotalOther">৳0.00</p>
+                </div>
+            </div>
+
+            <!-- Current Month Quick Stats -->
+            <h3 class="section-subtitle">This Month's Summary</h3>
+            <div class="stats-grid compact">
+                <div class="stat-card income">
+                    <h4>This Month Income</h4>
+                    <p class="stat-amount-sm" id="dashMonthIncome">৳0.00</p>
+                </div>
+                <div class="stat-card expense">
+                    <h4>This Month Expenses</h4>
+                    <p class="stat-amount-sm" id="dashMonthExpense">৳0.00</p>
+                </div>
+                <div class="stat-card other">
+                    <h4>This Month Other Costs</h4>
+                    <p class="stat-amount-sm" id="dashMonthOther">৳0.00</p>
+                </div>
+                <div class="stat-card balance">
+                    <h4>This Month Net Balance</h4>
+                    <p class="stat-amount-sm" id="dashMonthBalance">৳0.00</p>
+                </div>
+            </div>
+
+            <div class="dashboard-footer-info">
+                <span>Total Recorded Transactions: <strong id="dashTotalTransactionsCount">0</strong></span>
+            </div>
+
+            <!-- Quick Add Transaction Form -->
+            <div class="card form-card">
+                <h3 id="formTitle">Add New Transaction</h3>
+                <form id="transactionForm">
+                    <input type="hidden" id="transId">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="transDate">Date *</label>
+                            <input type="date" id="transDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="transType">Type *</label>
+                            <select id="transType" required>
+                                <option value="income">Income</option>
+                                <option value="expense">Expense</option>
+                                <option value="other">Other Cost</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="transCategory">Category *</label>
+                            <select id="transCategory" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="transAmount">Amount *</label>
+                            <div class="input-currency">
+                                <span>৳</span>
+                                <input type="number" id="transAmount" step="0.01" min="0.01" placeholder="0.00" required>
+                            </div>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="transDescription">Description / Note</label>
+                            <input type="text" id="transDescription" placeholder="e.g. Monthly salary, Grocery shopping">
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" id="submitTransBtn" class="btn btn-primary">Add Transaction</button>
+                        <button type="button" id="cancelEditBtn" class="btn btn-secondary hidden">Cancel Edit</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- 2. TRANSACTIONS VIEW -->
+        <section id="transactions" class="tab-content">
+            <h2>Transaction Records</h2>
+            
+            <!-- Filter Bar -->
+            <div class="card filter-card">
+                <h3>Filters & Search</h3>
+                <div class="filter-grid">
+                    <div class="form-group">
+                        <label for="filterStartDate">Start Date</label>
+                        <input type="date" id="filterStartDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="filterEndDate">End Date</label>
+                        <input type="date" id="filterEndDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="filterType">Type</label>
+                        <select id="filterType">
+                            <option value="all">All Types</option>
+                            <option value="income">Income</option>
+                            <option value="expense">Expense</option>
+                            <option value="other">Other Cost</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="filterCategory">Category</label>
+                        <select id="filterCategory">
+                            <option value="all">All Categories</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="filterSearch">Search Description</label>
+                        <input type="text" id="filterSearch" placeholder="Search by note or description...">
+                    </div>
+                </div>
+                <div class="filter-actions">
+                    <button id="resetFiltersBtn" class="btn btn-secondary btn-sm">Reset Filters</button>
+                </div>
+            </div>
+
+            <!-- Filtered Totals Summary -->
+            <div class="filter-summary-bar">
+                <div>Income: <strong id="filterSumIncome" class="text-success">৳0.00</strong></div>
+                <div>Expenses: <strong id="filterSumExpense" class="text-danger">৳0.00</strong></div>
+                <div>Other Costs: <strong id="filterSumOther" class="text-warning">৳0.00</strong></div>
+                <div>Net Balance: <strong id="filterSumBalance">৳0.00</strong></div>
+            </div>
+
+            <!-- Transactions Table -->
+            <div class="table-container card">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Amount</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionTableBody">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+                <div id="emptyTableMessage" class="empty-state hidden">
+                    <p>No transactions found matching the selected criteria.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. MONTHLY SUMMARY VIEW -->
+        <section id="monthly" class="tab-content">
+            <h2>Monthly Financial Breakdown</h2>
+            
+            <div class="monthly-controls card">
+                <div class="form-group-inline">
+                    <label for="monthlyMonthPicker">Select Month & Year:</label>
+                    <input type="month" id="monthlyMonthPicker">
+                </div>
+                <div class="month-nav-btns">
+                    <button id="prevMonthBtn" class="btn btn-secondary btn-sm">« Previous Month</button>
+                    <button id="nextMonthBtn" class="btn btn-secondary btn-sm">Next Month »</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card income">
+                    <h3 id="mTitleIncome">Income</h3>
+                    <p class="stat-amount" id="mValIncome">৳0.00</p>
+                </div>
+                <div class="stat-card expense">
+                    <h3 id="mTitleExpense">Expenses</h3>
+                    <p class="stat-amount" id="mValExpense">৳0.00</p>
+                </div>
+                <div class="stat-card other">
+                    <h3 id="mTitleOther">Other Costs</h3>
+                    <p class="stat-amount" id="mValOther">৳0.00</p>
+                </div>
+                <div class="stat-card balance">
+                    <h3 id="mTitleBalance">Net Balance</h3>
+                    <p class="stat-amount" id="mValBalance">৳0.00</p>
+                </div>
+            </div>
+
+            <h3 class="section-subtitle">Yearly Overview</h3>
+            <div class="card">
+                <div class="form-group-inline margin-bottom">
+                    <label for="yearlyYearPicker">Select Year:</label>
+                    <select id="yearlyYearPicker"></select>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Month</th>
+                                <th>Income</th>
+                                <th>Expenses</th>
+                                <th>Other Costs</th>
+                                <th>Net Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="yearlyTableBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. REPORTS & CHARTS VIEW -->
+        <section id="reports" class="tab-content">
+            <h2>Financial Visualizations</h2>
+            <div class="charts-grid">
+                <div class="card chart-card">
+                    <h3>Monthly Income vs Expense vs Other</h3>
+                    <div class="chart-container">
+                        <canvas id="chartIncomeExpense"></canvas>
+                    </div>
+                </div>
+                <div class="card chart-card">
+                    <h3>Expenses by Category</h3>
+                    <div class="chart-container">
+                        <canvas id="chartExpenseCategory"></canvas>
+                    </div>
+                </div>
+                <div class="card chart-card full-width">
+                    <h3>Monthly Net Balance Trend</h3>
+                    <div class="chart-container">
+                        <canvas id="chartBalanceTrend"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. BACKUP & SETTINGS VIEW -->
+        <section id="backup" class="tab-content">
+            <h2>Data Management & Configuration</h2>
+            
+            <div class="grid-2col">
+                <div class="card">
+                    <h3>Backup & Restore</h3>
+                    <p class="text-muted">Export your local data to keep it safe or transfer it to another browser.</p>
+                    
+                    <div class="action-group">
+                        <button id="exportJsonBtn" class="btn btn-primary">Export JSON Data</button>
+                        <button id="exportCsvBtn" class="btn btn-secondary">Export CSV Data</button>
+                    </div>
+
+                    <hr class="divider">
+
+                    <h4>Import Data</h4>
+                    <p class="text-muted">Restore data from a JSON file. Warning: This will merge or overwrite current records.</p>
+                    <div class="form-group">
+                        <input type="file" id="importJsonFile" accept=".json">
+                    </div>
+                    <button id="importJsonBtn" class="btn btn-secondary">Import JSON File</button>
+
+                    <hr class="divider">
+
+                    <h4>Reset Application</h4>
+                    <p class="text-muted">Permanently delete all stored records and settings.</p>
+                    <button id="clearDataBtn" class="btn btn-danger">Clear All Data</button>
+                </div>
+
+                <div class="card">
+                    <h3>Category Management</h3>
+                    <p class="text-muted">Add custom categories for Income, Expenses, and Other Costs.</p>
+
+                    <form id="addCategoryForm" class="form-stacked">
+                        <div class="form-group">
+                            <label for="newCatType">Category Type</label>
+                            <select id="newCatType">
+                                <option value="income">Income</option>
+                                <option value="expense">Expense</option>
+                                <option value="other">Other Cost</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="newCatName">Category Name</label>
+                            <input type="text" id="newCatName" placeholder="e.g. Crypto, Subscriptions" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Custom Category</button>
+                    </form>
+
+                    <h4 class="margin-top">Current Categories</h4>
+                    <div id="categoryListDisplay" class="category-tags-container">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>Personal Income & Expense Tracker | Data stored locally in browser storage.</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
