@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f172a">
+  <title>Personal Finance Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">PERSONAL FINANCE</p>
+        <h1>Finance Tracker</h1>
+        <p class="muted">Private, local and GitHub Pages friendly.</p>
+      </div>
+      <div class="top-actions">
+        <button class="icon-btn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">☾</button>
+        <span class="save-status" id="saveStatus">✓ Saved locally</span>
+      </div>
+    </header>
+
+    <nav class="nav-tabs" aria-label="Main navigation">
+      <button class="nav-btn active" data-section="dashboard">Dashboard</button>
+      <button class="nav-btn" data-section="transactions">Transactions</button>
+      <button class="nav-btn" data-section="monthly">Monthly Summary</button>
+      <button class="nav-btn" data-section="reports">Reports</button>
+      <button class="nav-btn" data-section="backup">Backup</button>
+    </nav>
+
+    <main>
+      <section id="dashboard" class="page-section active">
+        <div class="section-heading">
+          <div><h2>Dashboard</h2><p class="muted">Your latest financial status at a glance.</p></div>
+          <button class="primary" data-scroll-add>Add Transaction</button>
+        </div>
+
+        <div class="cards">
+          <article class="stat-card income"><span>Total Income</span><strong id="totalIncome">৳0.00</strong></article>
+          <article class="stat-card expense"><span>Total Expenses</span><strong id="totalExpense">৳0.00</strong></article>
+          <article class="stat-card other"><span>Other Costs</span><strong id="totalOther">৳0.00</strong></article>
+          <article class="stat-card balance"><span>Current On-Hand</span><strong id="currentBalance">৳0.00</strong></article>
+          <article class="stat-card"><span>This Month's Income</span><strong id="monthIncome">৳0.00</strong></article>
+          <article class="stat-card"><span>This Month's Expenses</span><strong id="monthExpense">৳0.00</strong></article>
+          <article class="stat-card"><span>This Month's Balance</span><strong id="monthBalance">৳0.00</strong></article>
+          <article class="stat-card"><span>Transactions</span><strong id="transactionCount">0</strong></article>
+        </div>
+
+        <div class="dashboard-grid">
+          <section class="panel">
+            <div class="panel-head"><div><h3>Opening Balance</h3><p class="muted">Starting cash before recorded transactions.</p></div></div>
+            <div class="inline-form">
+              <label>Opening Balance
+                <input id="openingBalance" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+              </label>
+              <button class="secondary" id="saveOpening">Save Balance</button>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><div><h3>Quick Summary</h3><p class="muted" id="quickSummary">No transactions yet.</p></div></div>
+            <div class="mini-stats">
+              <div><span>Today</span><b id="todayNet">৳0.00</b></div>
+              <div><span>This Week</span><b id="weekNet">৳0.00</b></div>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel" id="addPanel">
+          <div class="panel-head"><div><h3 id="formTitle">Add Transaction</h3><p class="muted">Income increases the balance; expenses and other costs reduce it.</p></div></div>
+          <form id="transactionForm" class="transaction-form">
+            <input type="hidden" id="editId">
+            <label>Date<input id="date" type="date" required></label>
+            <label>Type
+              <select id="type" required>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+                <option value="other">Other Cost</option>
+              </select>
+            </label>
+            <label>Category<select id="category" required></select></label>
+            <label class="wide">Description / Note<input id="description" type="text" maxlength="120" placeholder="e.g. Monthly salary"></label>
+            <label>Amount<input id="amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required></label>
+            <div class="form-actions wide">
+              <button class="primary" id="submitBtn" type="submit">Add Transaction</button>
+              <button class="secondary hidden" id="cancelEdit" type="button">Cancel Edit</button>
+            </div>
+          </form>
+        </section>
+      </section>
+
+      <section id="transactions" class="page-section">
+        <div class="section-heading"><div><h2>Transactions</h2><p class="muted">Search, filter, edit or delete your records.</p></div></div>
+        <section class="panel">
+          <div class="filters">
+            <label>Search<input id="searchFilter" type="search" placeholder="Description or category"></label>
+            <label>Start Date<input id="startDate" type="date"></label>
+            <label>End Date<input id="endDate" type="date"></label>
+            <label>Type<select id="typeFilter"><option value="">All Types</option><option value="income">Income</option><option value="expense">Expense</option><option value="other">Other Cost</option></select></label>
+            <label>Category<select id="categoryFilter"><option value="">All Categories</option></select></label>
+            <button class="secondary" id="clearFilters" type="button">Clear Filters</button>
+          </div>
+          <div class="filtered-summary">
+            <div><span>Income</span><b id="filteredIncome">৳0.00</b></div>
+            <div><span>Expenses</span><b id="filteredExpense">৳0.00</b></div>
+            <div><span>Other</span><b id="filteredOther">৳0.00</b></div>
+            <div><span>Net</span><b id="filteredNet">৳0.00</b></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Description</th><th>Amount</th><th>Actions</th></tr></thead>
+              <tbody id="transactionBody"></tbody>
+            </table>
+          </div>
+          <div class="empty-state hidden" id="emptyTransactions">No transactions match your filters.</div>
+        </section>
+      </section>
+
+      <section id="monthly" class="page-section">
+        <div class="section-heading">
+          <div><h2>Monthly Summary</h2><p class="muted">Review one month and compare your year.</p></div>
+          <div class="month-picker"><button class="secondary" id="prevMonth">←</button><input id="monthPicker" type="month"><button class="secondary" id="nextMonth">→</button></div>
+        </div>
+        <div class="cards four">
+          <article class="stat-card income"><span>Income</span><strong id="selectedIncome">৳0.00</strong></article>
+          <article class="stat-card expense"><span>Expenses</span><strong id="selectedExpense">৳0.00</strong></article>
+          <article class="stat-card other"><span>Other Costs</span><strong id="selectedOther">৳0.00</strong></article>
+          <article class="stat-card balance"><span>Net Balance</span><strong id="selectedNet">৳0.00</strong></article>
+        </div>
+        <div class="dashboard-grid">
+          <section class="panel"><div class="panel-head"><div><h3>Monthly Activity</h3></div></div><div class="chart-box"><canvas id="monthlyChart"></canvas></div></section>
+          <section class="panel"><div class="panel-head"><div><h3>Expense by Category</h3></div></div><div class="chart-box"><canvas id="categoryChart"></canvas></div></section>
+        </div>
+        <section class="panel">
+          <div class="panel-head"><div><h3>Yearly Overview</h3><p class="muted" id="yearLabel"></p></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Month</th><th>Income</th><th>Expenses</th><th>Balance</th></tr></thead><tbody id="yearBody"></tbody></table></div>
+        </section>
+      </section>
+
+      <section id="reports" class="page-section">
+        <div class="section-heading"><div><h2>Reports</h2><p class="muted">Useful snapshots of your financial activity.</p></div></div>
+        <div class="dashboard-grid">
+          <section class="panel"><div class="panel-head"><div><h3>Last 7 Days</h3></div></div><div id="weekReport" class="report-list"></div></section>
+          <section class="panel"><div class="panel-head"><div><h3>Top Expense Categories</h3></div></div><div id="topCategories" class="report-list"></div></section>
+        </div>
+        <section class="panel">
+          <div class="panel-head"><div><h3>Print Monthly Report</h3><p class="muted">Print the selected month's summary from the Monthly Summary tab.</p></div><button class="primary" id="printReport">Print Report</button></div>
+        </section>
+      </section>
+
+      <section id="backup" class="page-section">
+        <div class="section-heading"><div><h2>Backup & Settings</h2><p class="muted">Your records stay in this browser unless you export them.</p></div></div>
+        <div class="dashboard-grid">
+          <section class="panel">
+            <h3>Backup</h3>
+            <p class="muted">Keep a JSON backup somewhere safe. CSV is useful for spreadsheets.</p>
+            <div class="button-stack">
+              <button class="primary" id="exportJson">Export JSON</button>
+              <button class="secondary" id="exportCsv">Export CSV</button>
+              <label class="file-button secondary">Import JSON<input id="importJson" type="file" accept=".json,application/json"></label>
+            </div>
+          </section>
+          <section class="panel">
+            <h3>Categories</h3>
+            <p class="muted">Add your own category. Categories are saved locally.</p>
+            <form id="categoryForm" class="inline-form">
+              <input id="newCategory" type="text" maxlength="40" placeholder="New category">
+              <select id="newCategoryType"><option value="income">Income</option><option value="expense">Expense</option><option value="other">Other Cost</option></select>
+              <button class="secondary" type="submit">Add</button>
+            </form>
+            <div id="categoryList" class="category-list"></div>
+          </section>
+        </div>
+        <section class="panel danger-panel">
+          <h3>Clear All Data</h3>
+          <p class="muted">This removes transactions, opening balance and custom categories from this browser. Export a backup first.</p>
+          <button class="danger" id="clearAll">Clear Everything</button>
+        </section>
+      </section>
+    </main>
+
+    <footer><span>Personal Finance Tracker</span><span>Data stored locally in your browser • No server • No tracking</span></footer>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="script.js"></script>
+</body>
+</html>
