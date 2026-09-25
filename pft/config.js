@@ -1,7 +1,7 @@
 // Supabase Public Configuration
 const CONFIG = {
-  SUPABASE_URL: "https://your-supabase-project-id.supabase.co",
-  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.your-anon-key-here",
+  SUPABASE_URL: "https://kmtubcmuitlyjrvotixg.supabase.co/rest/v1/",
+  SUPABASE_ANON_KEY: "sb_publishable_RLp83gLkdcHM9yZV3jMuJQ_OQLCgpg0",
   DEFAULT_CURRENCY: "৳"
 };
 
