@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personal Finance Tracker</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Supabase JS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- AUTH SECTION -->
+  <div id="auth-container" class="auth-wrapper">
+    <div class="auth-card">
+      <div class="brand-header">
+        <h2>💰 FinanceTracker</h2>
+        <p>Manage your income, expenses, and savings seamlessly.</p>
+      </div>
+
+      <!-- Login Form -->
+      <form id="login-form" class="auth-form">
+        <h3>Login to your account</h3>
+        <div class="form-group">
+          <label for="login-userid">User ID</label>
+          <input type="text" id="login-userid" required placeholder="e.g. john_doe">
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" required placeholder="••••••••">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Login</button>
+        <p class="auth-toggle-text">Don't have an account? <a href="#" id="show-register">Register here</a></p>
+      </form>
+
+      <!-- Register Form -->
+      <form id="register-form" class="auth-form hidden">
+        <h3>Create an account</h3>
+        <div class="form-group">
+          <label for="reg-fullname">Full Name</label>
+          <input type="text" id="reg-fullname" required placeholder="John Doe">
+        </div>
+        <div class="form-group">
+          <label for="reg-userid">User ID</label>
+          <input type="text" id="reg-userid" required placeholder="john_doe">
+        </div>
+        <div class="form-group">
+          <label for="reg-password">Password</label>
+          <input type="password" id="reg-password" required placeholder="••••••••">
+        </div>
+        <div class="form-group">
+          <label for="reg-confirm-password">Confirm Password</label>
+          <input type="password" id="reg-confirm-password" required placeholder="••••••••">
+        </div>
+        <button type="submit" class="btn btn-success btn-block">Register</button>
+        <p class="auth-toggle-text">Already registered? <a href="#" id="show-login">Login here</a></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN APP CONTAINER -->
+  <div id="app-container" class="app-layout hidden">
+    <!-- TOP BAR (SYNC & USER STATUS) -->
+    <header class="topbar">
+      <div class="mobile-nav-toggle" id="menu-toggle">☰</div>
+      <div class="brand-title">💰 FinanceTracker</div>
+      <div class="topbar-right">
+        <span id="sync-status" class="badge badge-synced">Synced</span>
+        <span id="user-display-name" class="user-badge">User</span>
+        <button id="logout-btn" class="btn btn-sm btn-outline">Logout</button>
+      </div>
+    </header>
+
+    <!-- SIDEBAR NAVIGATION -->
+    <nav class="sidebar" id="sidebar">
+      <ul>
+        <li class="nav-item active" data-view="dashboard">📊 Dashboard</li>
+        <li class="nav-item" data-view="transactions">📝 Transactions</li>
+        <li class="nav-item" data-view="accounts">🏦 Accounts</li>
+        <li class="nav-item" data-view="transfers">🔄 Transfers</li>
+        <li class="nav-item" data-view="summary">📅 Monthly Summary</li>
+        <li class="nav-item" data-view="reports">📈 Reports & Charts</li>
+        <li class="nav-item" data-view="budgets">🎯 Budgets</li>
+        <li class="nav-item" data-view="backup">💾 Backup & Export</li>
+        <li class="nav-item" data-view="settings">⚙️ Settings</li>
+      </ul>
+    </nav>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="content-area">
+
+      <!-- VIEW 1: DASHBOARD -->
+      <section id="view-dashboard" class="view-panel active">
+        <h2>Dashboard</h2>
+        
+        <!-- Summary Cards Grid -->
+        <div class="grid-4">
+          <div class="card stat-card text-success">
+            <h4>Total Income</h4>
+            <div class="stat-value" id="dash-total-income">৳0.00</div>
+          </div>
+          <div class="card stat-card text-danger">
+            <h4>Total Expenses</h4>
+            <div class="stat-value" id="dash-total-expense">৳0.00</div>
+          </div>
+          <div class="card stat-card text-warning">
+            <h4>Total Other Costs</h4>
+            <div class="stat-value" id="dash-total-other">৳0.00</div>
+          </div>
+          <div class="card stat-card text-primary">
+            <h4>Available Balance</h4>
+            <div class="stat-value" id="dash-available-balance">৳0.00</div>
+          </div>
+        </div>
+
+        <!-- Account Breakdown Grid -->
+        <h3 class="section-title">Account Breakdown</h3>
+        <div class="grid-4">
+          <div class="card">
+            <span class="card-subtitle">Cash Balance</span>
+            <div class="card-amount" id="dash-cash-balance">৳0.00</div>
+          </div>
+          <div class="card">
+            <span class="card-subtitle">Bank Balance</span>
+            <div class="card-amount" id="dash-bank-balance">৳0.00</div>
+          </div>
+          <div class="card">
+            <span class="card-subtitle">Mobile Wallet</span>
+            <div class="card-amount" id="dash-wallet-balance">৳0.00</div>
+          </div>
+          <div class="card">
+            <span class="card-subtitle">Other Balance</span>
+            <div class="card-amount" id="dash-other-balance">৳0.00</div>
+          </div>
+        </div>
+
+        <!-- Quick Period Performance -->
+        <h3 class="section-title">Period Overview</h3>
+        <div class="grid-2">
+          <div class="card">
+            <h4>This Month Performance</h4>
+            <div class="details-list">
+              <p>Income: <strong id="dash-month-income">৳0.00</strong></p>
+              <p>Expense: <strong id="dash-month-expense">৳0.00</strong></p>
+              <p>Other Cost: <strong id="dash-month-other">৳0.00</strong></p>
+              <p>Net Balance: <strong id="dash-month-net">৳0.00</strong></p>
+              <p>Transactions: <span id="dash-month-count">0</span></p>
+            </div>
+          </div>
+          <div class="card">
+            <h4>Quick Stats</h4>
+            <div class="details-list">
+              <p>Today Income: <strong id="dash-today-income">৳0.00</strong></p>
+              <p>Today Expense: <strong id="dash-today-expense">৳0.00</strong></p>
+              <p>This Week Income: <strong id="dash-week-income">৳0.00</strong></p>
+              <p>This Week Expense: <strong id="dash-week-expense">৳0.00</strong></p>
+              <p>Total Records: <span id="dash-total-tx-count">0</span></p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: TRANSACTIONS -->
+      <section id="view-transactions" class="view-panel">
+        <div class="view-header">
+          <h2>Transactions</h2>
+          <button class="btn btn-primary" onclick="openTransactionModal()">+ Add Transaction</button>
+        </div>
+
+        <!-- Filters Bar -->
+        <div class="card filter-card">
+          <div class="filter-grid">
+            <input type="date" id="filter-start-date">
+            <input type="date" id="filter-end-date">
+            <select id="filter-type">
+              <option value="">All Types</option>
+              <option value="Income">Income</option>
+              <option value="Expense">Expense</option>
+              <option value="Other Cost">Other Cost</option>
+            </select>
+            <select id="filter-account"><option value="">All Accounts</option></select>
+            <select id="filter-category"><option value="">All Categories</option></select>
+            <input type="text" id="filter-search" placeholder="Search description...">
+          </div>
+          <div class="filter-summary">
+            Filtered Totals | Income: <span id="ft-income" class="text-success">৳0</span> | Expense: <span id="ft-expense" class="text-danger">৳0</span> | Other: <span id="ft-other" class="text-warning">৳0</span> | Net: <span id="ft-net">৳0</span>
+          </div>
+        </div>
+
+        <!-- Transactions Table -->
+        <div class="card table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Account</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Amount</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tx-table-body">
+              <tr><td colspan="7" class="text-center">No transactions found.</td></tr>
+            </tbody>
+          </table>
+          <div class="pagination-bar">
+            <button id="prev-page" class="btn btn-sm btn-outline">Previous</button>
+            <span id="page-info">Page 1 of 1</span>
+            <button id="next-page" class="btn btn-sm btn-outline">Next</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 3: ACCOUNTS -->
+      <section id="view-accounts" class="view-panel">
+        <div class="view-header">
+          <h2>Financial Accounts</h2>
+          <button class="btn btn-primary" onclick="openAccountModal()">+ Add Account</button>
+        </div>
+        <div class="grid-3" id="accounts-grid-container">
+          <!-- Account Cards Rendered Here -->
+        </div>
+      </section>
+
+      <!-- VIEW 4: TRANSFERS -->
+      <section id="view-transfers" class="view-panel">
+        <div class="view-header">
+          <h2>Account Transfers</h2>
+          <button class="btn btn-primary" onclick="openTransferModal()">+ New Transfer</button>
+        </div>
+        <div class="card table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>From Account</th>
+                <th>To Account</th>
+                <th>Note</th>
+                <th>Amount</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="transfer-table-body">
+              <tr><td colspan="6" class="text-center">No transfers recorded.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- VIEW 5: MONTHLY SUMMARY -->
+      <section id="view-summary" class="view-panel">
+        <h2>Monthly Summary</h2>
+        <div class="card filter-card inline-filters">
+          <button id="summary-prev-month" class="btn btn-sm btn-outline">◀ Prev</button>
+          <input type="month" id="summary-month-select">
+          <button id="summary-next-month" class="btn btn-sm btn-outline">Next ▶</button>
+        </div>
+
+        <div class="grid-4" style="margin-top: 1rem;">
+          <div class="card text-success"><h4>Income</h4><div id="sm-income" class="stat-value">৳0.00</div></div>
+          <div class="card text-danger"><h4>Expenses</h4><div id="sm-expense" class="stat-value">৳0.00</div></div>
+          <div class="card text-warning"><h4>Other Costs</h4><div id="sm-other" class="stat-value">৳0.00</div></div>
+          <div class="card text-primary"><h4>Net Balance</h4><div id="sm-net" class="stat-value">৳0.00</div></div>
+        </div>
+
+        <h3 class="section-title">Yearly Overview (<span id="summary-year-label">2026</span>)</h3>
+        <div class="card table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Income</th>
+                <th>Expenses</th>
+                <th>Other Costs</th>
+                <th>Net</th>
+              </tr>
+            </thead>
+            <tbody id="yearly-summary-table">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- VIEW 6: REPORTS & CHARTS -->
+      <section id="view-reports" class="view-panel">
+        <h2>Reports & Analytics</h2>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Monthly Income vs Expense</h4>
+            <div class="chart-wrapper"><canvas id="chart-inc-exp"></canvas></div>
+          </div>
+          <div class="card">
+            <h4>Expense by Category</h4>
+            <div class="chart-wrapper"><canvas id="chart-cat-exp"></canvas></div>
+          </div>
+          <div class="card">
+            <h4>Monthly Balance Trend</h4>
+            <div class="chart-wrapper"><canvas id="chart-balance-trend"></canvas></div>
+          </div>
+          <div class="card">
+            <h4>Account Balance Distribution</h4>
+            <div class="chart-wrapper"><canvas id="chart-acc-dist"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 7: BUDGETS -->
+      <section id="view-budgets" class="view-panel">
+        <div class="view-header">
+          <h2>Budgeting</h2>
+          <button class="btn btn-primary" onclick="openBudgetModal()">+ Set Category Budget</button>
+        </div>
+        <div class="card filter-card">
+          <label>Select Month: </label>
+          <input type="month" id="budget-month-select">
+        </div>
+        <div class="grid-2" id="budgets-container" style="margin-top:1rem;">
+          <!-- Budget items rendered dynamically -->
+        </div>
+      </section>
+
+      <!-- VIEW 8: BACKUP & DATA PORTABILITY -->
+      <section id="view-backup" class="view-panel">
+        <h2>Backup & Portability</h2>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Export Data</h3>
+            <p>Download your complete records for personal safety or backup.</p>
+            <div class="btn-group">
+              <button class="btn btn-primary" onclick="exportData('json')">Export Full JSON</button>
+              <button class="btn btn-outline" onclick="exportData('csv')">Export Transactions CSV</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Import Data</h3>
+            <p>Import backup files. Data will be safely verified before merging.</p>
+            <input type="file" id="import-file-input" accept=".json, .csv">
+            <button class="btn btn-success" onclick="importData()" style="margin-top:10px;">Import File</button>
+          </div>
+        </div>
+
+        <div class="card danger-zone" style="margin-top: 20px;">
+          <h3 class="text-danger">Danger Zone</h3>
+          <p>Permanently remove all your financial accounts, transactions, budgets, and settings.</p>
+          <button class="btn btn-danger" onclick="clearAllUserData()">Clear All My Data</button>
+        </div>
+      </section>
+
+      <!-- VIEW 9: SETTINGS -->
+      <section id="view-settings" class="view-panel">
+        <h2>Settings</h2>
+        <div class="card max-w-600">
+          <form id="settings-form">
+            <div class="form-group">
+              <label>Full Name</label>
+              <input type="text" id="set-fullname" readonly>
+            </div>
+            <div class="form-group">
+              <label>User ID</label>
+              <input type="text" id="set-userid" readonly>
+            </div>
+            <div class="form-group">
+              <label>Preferred Currency Symbol</label>
+              <input type="text" id="set-currency" value="৳">
+            </div>
+            <div class="form-group">
+              <label>Theme</label>
+              <select id="set-theme">
+                <option value="system">System Default</option>
+                <option value="light">Light Mode</option>
+                <option value="dark">Dark Mode</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+          </form>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODALS -->
+  <!-- TRANSACTION MODAL -->
+  <div id="modal-tx" class="modal-backdrop">
+    <div class="modal-content">
+      <h3 id="tx-modal-title">Add Transaction</h3>
+      <form id="tx-form">
+        <input type="hidden" id="tx-id">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="tx-date" required>
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select id="tx-type" required>
+            <option value="Expense">Expense</option>
+            <option value="Income">Income</option>
+            <option value="Other Cost">Other Cost</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Account</label>
+          <select id="tx-account" required></select>
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="tx-category" required></select>
+        </div>
+        <div class="form-group">
+          <label>Amount</label>
+          <input type="number" step="0.01" id="tx-amount" min="0.01" required>
+        </div>
+        <div class="form-group">
+          <label>Description / Note</label>
+          <input type="text" id="tx-desc" placeholder="e.g. Weekly Grocery">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-tx')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Transaction</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ACCOUNT MODAL -->
+  <div id="modal-account" class="modal-backdrop">
+    <div class="modal-content">
+      <h3 id="acc-modal-title">Add Financial Account</h3>
+      <form id="acc-form">
+        <input type="hidden" id="acc-id">
+        <div class="form-group">
+          <label>Account Name</label>
+          <input type="text" id="acc-name" required placeholder="e.g. Main Checking">
+        </div>
+        <div class="form-group">
+          <label>Account Type</label>
+          <select id="acc-type" required>
+            <option value="Cash">Cash / On Hand</option>
+            <option value="Bank Account">Bank Account</option>
+            <option value="Mobile Wallet">Mobile Wallet</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Provider / Bank Name</label>
+          <input type="text" id="acc-provider" placeholder="e.g. City Bank / bKash">
+        </div>
+        <div class="form-group">
+          <label>Last 4 Digits (Optional)</label>
+          <input type="text" maxlength="4" id="acc-digits" placeholder="1234">
+        </div>
+        <div class="form-group">
+          <label>Opening Balance</label>
+          <input type="number" step="0.01" id="acc-opening" required value="0">
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <input type="text" id="acc-notes">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-account')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TRANSFER MODAL -->
+  <div id="modal-transfer" class="modal-backdrop">
+    <div class="modal-content">
+      <h3 id="transfer-modal-title">New Account Transfer</h3>
+      <form id="transfer-form">
+        <input type="hidden" id="transfer-id">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="tr-date" required>
+        </div>
+        <div class="form-group">
+          <label>From Account</label>
+          <select id="tr-from" required></select>
+        </div>
+        <div class="form-group">
+          <label>To Account</label>
+          <select id="tr-to" required></select>
+        </div>
+        <div class="form-group">
+          <label>Amount</label>
+          <input type="number" step="0.01" id="tr-amount" min="0.01" required>
+        </div>
+        <div class="form-group">
+          <label>Note</label>
+          <input type="text" id="tr
