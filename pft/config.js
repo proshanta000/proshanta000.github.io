@@ -6,9 +6,24 @@ window.CONFIG = {
 };
 
 // Global Supabase Client Instance
-if (typeof supabase !== 'undefined') {
-  window.db = supabase.createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY);
-  window.supabaseClient = window.db; // Safe alias
-} else {
-  console.error("Supabase CDN script is missing from HTML <head>.");
-}
+(function initializeSupabase() {
+  if (typeof supabase === 'undefined') {
+    console.error('Supabase CDN script is missing from index.html.');
+    return;
+  }
+
+  if (!window.CONFIG.SUPABASE_URL || !window.CONFIG.SUPABASE_ANON_KEY) {
+    console.error('Supabase URL or publishable key is missing from config.js.');
+    return;
+  }
+
+  try {
+    window.db = supabase.createClient(
+      window.CONFIG.SUPABASE_URL,
+      window.CONFIG.SUPABASE_ANON_KEY
+    );
+    window.supabaseClient = window.db;
+  } catch (error) {
+    console.error('Failed to initialize Supabase:', error);
+  }
+})();

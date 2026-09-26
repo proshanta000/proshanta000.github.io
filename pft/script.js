@@ -1,10 +1,11 @@
 /**
- * Personal Finance Tracker - Single Page Application Core Logic
+ * Personal Finance Tracker - corrected/reliable frontend
+ * Compatible with the existing profiles/accounts/categories/transactions/
+ * transfers/budgets schema used by this project.
  */
 
-// STATE MANAGEMENT
 const state = {
-  user: null, // Logged in user profile
+  user: null,
   accounts: [],
   categories: [],
   transactions: [],
@@ -14,7 +15,6 @@ const state = {
   charts: {}
 };
 
-// DEFAULT CATEGORIES
 const DEFAULT_CATEGORIES = [
   { name: 'Salary', type: 'Income' },
   { name: 'Freelance', type: 'Income' },
@@ -37,263 +37,453 @@ const DEFAULT_CATEGORIES = [
   { name: 'Tax', type: 'Other Cost' }
 ];
 
-// INITIALIZATION
+function requireDb() {
+  if (!window.db) throw new Error('Supabase is not initialized. Check config.js and the Supabase CDN.');
+  return window.db;
+}
+
+function localDateString(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function localMonthString(date = new Date()) {
+  return localDateString(date).slice(0, 7);
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function numberValue(value) {
+  const n = Number.parseFloat(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function currency() {
+  return state.user?.currency || CONFIG.DEFAULT_CURRENCY || '৳';
+}
+
+function userId() {
+  return state.user?.id || null;
+}
+
+function assertLoggedIn() {
+  if (!state.user?.id) throw new Error('Your session has expired. Please log in again.');
+}
+
+function getErrorMessage(error) {
+  if (!error) return 'Unknown database error';
+  return error.message || error.details || error.hint || JSON.stringify(error);
+}
+
+async function ensureDefaultData() {
+  assertLoggedIn();
+  const db = requireDb();
+
+  if (state.categories.length === 0) {
+    const rows = DEFAULT_CATEGORIES.map(c => ({
+      ...c,
+      profile_id: state.user.id,
+      is_default: true
+    }));
+    const { error } = await db.from('categories').insert(rows);
+    if (error) throw error;
+  }
+
+  if (state.accounts.length === 0) {
+    const { error } = await db.from('accounts').insert([{
+      profile_id: state.user.id,
+      account_name: 'Cash',
+      account_type: 'Cash',
+      opening_balance: 0,
+      currency: currency(),
+      is_active: true
+    }]);
+    if (error) throw error;
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
-  checkSession();
   applySystemTheme();
+  setDefaultMonths();
+  checkSession();
 });
 
 function setupEventListeners() {
-  // Auth Form Toggles
-  document.getElementById('show-register').addEventListener('click', (e) => {
+  const ids = [
+    'show-register', 'show-login', 'login-form', 'register-form', 'logout-btn',
+    'menu-toggle', 'tx-form', 'acc-form', 'transfer-form', 'budget-form',
+    'settings-form', 'tx-type', 'prev-page', 'next-page', 'summary-month-select',
+    'budget-month-select', 'summary-prev-month', 'summary-next-month'
+  ];
+  ids.forEach(id => {
+    if (!document.getElementById(id)) console.warn(`Missing HTML element: #${id}`);
+  });
+
+  document.getElementById('show-register').addEventListener('click', e => {
     e.preventDefault();
     document.getElementById('login-form').classList.add('hidden');
     document.getElementById('register-form').classList.remove('hidden');
   });
 
-  document.getElementById('show-login').addEventListener('click', (e) => {
+  document.getElementById('show-login').addEventListener('click', e => {
     e.preventDefault();
     document.getElementById('register-form').classList.add('hidden');
     document.getElementById('login-form').classList.remove('hidden');
   });
 
-  // Auth Submissions
   document.getElementById('login-form').addEventListener('submit', handleLogin);
   document.getElementById('register-form').addEventListener('submit', handleRegister);
   document.getElementById('logout-btn').addEventListener('click', handleLogout);
 
-  // Mobile Navigation Toggle
   document.getElementById('menu-toggle').addEventListener('click', () => {
     document.getElementById('sidebar').classList.toggle('open');
   });
 
-  // Sidebar Views Switching
   document.querySelectorAll('.sidebar .nav-item').forEach(item => {
     item.addEventListener('click', () => {
       document.querySelectorAll('.sidebar .nav-item').forEach(i => i.classList.remove('active'));
       document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
-      
       item.classList.add('active');
       const view = item.dataset.view;
-      document.getElementById(`view-${view}`).classList.add('active');
+      const panel = document.getElementById(`view-${view}`);
+      if (panel) panel.classList.add('active');
       document.getElementById('sidebar').classList.remove('open');
-
       renderView(view);
     });
   });
 
-  // Form Submissions
   document.getElementById('tx-form').addEventListener('submit', handleSaveTransaction);
   document.getElementById('acc-form').addEventListener('submit', handleSaveAccount);
   document.getElementById('transfer-form').addEventListener('submit', handleSaveTransfer);
   document.getElementById('budget-form').addEventListener('submit', handleSaveBudget);
   document.getElementById('settings-form').addEventListener('submit', handleSaveSettings);
 
-  // Filters & Event Dynamic Listeners
   document.querySelectorAll('.filter-grid input, .filter-grid select').forEach(el => {
-    el.addEventListener('input', () => { state.pagination.page = 1; renderTransactions(); });
+    el.addEventListener('input', () => {
+      state.pagination.page = 1;
+      renderTransactions();
+    });
+    el.addEventListener('change', () => {
+      state.pagination.page = 1;
+      renderTransactions();
+    });
   });
 
   document.getElementById('tx-type').addEventListener('change', populateCategorySelect);
-  document.getElementById('prev-page').addEventListener('click', () => { if (state.pagination.page > 1) { state.pagination.page--; renderTransactions(); } });
-  document.getElementById('next-page').addEventListener('click', () => { state.pagination.page++; renderTransactions(); });
+  document.getElementById('prev-page').addEventListener('click', () => {
+    if (state.pagination.page > 1) {
+      state.pagination.page--;
+      renderTransactions();
+    }
+  });
+  document.getElementById('next-page').addEventListener('click', () => {
+    state.pagination.page++;
+    renderTransactions();
+  });
 
-  // Monthly Summary & Budget Months Setup
-  const currentMonthStr = new Date().toISOString().slice(0, 7);
-  document.getElementById('summary-month-select').value = currentMonthStr;
-  document.getElementById('budget-month-select').value = currentMonthStr;
-  
   document.getElementById('summary-month-select').addEventListener('change', renderMonthlySummary);
   document.getElementById('budget-month-select').addEventListener('change', renderBudgets);
-  
   document.getElementById('summary-prev-month').addEventListener('click', () => shiftSummaryMonth(-1));
   document.getElementById('summary-next-month').addEventListener('click', () => shiftSummaryMonth(1));
 }
 
-// USER SESSION AND AUTHENTICATION
-function checkSession() {
-  const sessionUser = localStorage.getItem('pft_user');
-  if (sessionUser) {
-    state.user = JSON.parse(sessionUser);
-    initializeUserApp();
-  } else {
-    document.getElementById('auth-container').classList.remove('hidden');
-    document.getElementById('app-container').classList.add('hidden');
+function setDefaultMonths() {
+  const month = localMonthString();
+  document.getElementById('summary-month-select').value = month;
+  document.getElementById('budget-month-select').value = month;
+}
+
+async function checkSession() {
+  const saved = localStorage.getItem('pft_user');
+  if (!saved) {
+    showAuth();
+    return;
   }
+
+  try {
+    state.user = JSON.parse(saved);
+    if (!state.user?.id) throw new Error('Invalid saved session');
+
+    // Refresh the profile so changed settings are not stuck in localStorage.
+    const { data, error } = await requireDb()
+      .from('profiles')
+      .select('*')
+      .eq('id', state.user.id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data || data.is_active === false) throw new Error('Profile not found or inactive');
+
+    state.user = data;
+    localStorage.setItem('pft_user', JSON.stringify(data));
+    await initializeUserApp();
+  } catch (err) {
+    console.warn('Saved session could not be restored:', err);
+    localStorage.removeItem('pft_user');
+    state.user = null;
+    showAuth();
+    showToast('Please log in again.', 'error');
+  }
+}
+
+function showAuth() {
+  document.getElementById('auth-container').classList.remove('hidden');
+  document.getElementById('app-container').classList.add('hidden');
 }
 
 async function handleLogin(e) {
   e.preventDefault();
-  const userId = document.getElementById('login-userid').value.trim();
-  const password = document.getElementById('login-password').value.trim();
+  const userIdInput = document.getElementById('login-userid').value.trim();
+  const password = document.getElementById('login-password').value;
+
+  if (!userIdInput || !password) {
+    showToast('Please enter User ID and Password.', 'error');
+    return;
+  }
 
   try {
-    showSyncStatus('Syncing...', 'syncing');
-    const { data, error } = await db.from('profiles').select('*').eq('user_id', userId).single();
+    showSyncStatus('Connecting...', 'syncing');
+    const { data, error } = await requireDb()
+      .from('profiles')
+      .select('*')
+      .eq('user_id', userIdInput)
+      .maybeSingle();
 
-    if (error || !data || data.password_hash !== btoa(password)) {
+    if (error) throw error;
+    if (!data || data.is_active === false || data.password_hash !== btoa(unescape(encodeURIComponent(password)))) {
+      showSyncStatus('Login Failed', 'error');
       showToast('Invalid User ID or Password', 'error');
-      showSyncStatus('Sync Failed', 'error');
       return;
     }
 
     state.user = data;
     localStorage.setItem('pft_user', JSON.stringify(data));
+    document.getElementById('login-password').value = '';
     showToast('Login successful', 'success');
-    initializeUserApp();
+    await initializeUserApp();
   } catch (err) {
-    showToast('Login error: ' + err.message, 'error');
+    console.error('Login error:', err);
+    showSyncStatus('Connection Error', 'error');
+    showToast('Login error: ' + getErrorMessage(err), 'error');
   }
+}
+
+function encodePassword(password) {
+  // Kept compatible with the existing database records while handling Unicode safely.
+  return btoa(unescape(encodeURIComponent(password)));
 }
 
 async function handleRegister(e) {
   e.preventDefault();
   const fullName = document.getElementById('reg-fullname').value.trim();
-  const userId = document.getElementById('reg-userid').value.trim();
-  const password = document.getElementById('reg-password').value.trim();
-  const confirmPassword = document.getElementById('reg-confirm-password').value.trim();
+  const newUserId = document.getElementById('reg-userid').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const confirmPassword = document.getElementById('reg-confirm-password').value;
 
+  if (!fullName || !newUserId || !password) {
+    showToast('Please complete all required fields.', 'error');
+    return;
+  }
+  if (password.length < 4) {
+    showToast('Password must be at least 4 characters.', 'error');
+    return;
+  }
   if (password !== confirmPassword) {
     showToast('Passwords do not match', 'error');
     return;
   }
 
   try {
-    showSyncStatus('Syncing...', 'syncing');
-    // Check existing
-    const { data: existing } = await db.from('profiles').select('id').eq('user_id', userId).maybeSingle();
+    showSyncStatus('Creating account...', 'syncing');
+    const db = requireDb();
+
+    const { data: existing, error: existingError } = await db
+      .from('profiles')
+      .select('id')
+      .eq('user_id', newUserId)
+      .maybeSingle();
+
+    if (existingError) throw existingError;
     if (existing) {
       showToast('User ID already exists', 'error');
+      showSyncStatus('Ready', 'synced');
       return;
     }
 
-    // Insert user
     const { data: newUser, error } = await db.from('profiles').insert([{
-      user_id: userId,
+      user_id: newUserId,
       full_name: fullName,
-      password_hash: btoa(password) // Basic client-side hash representation
+      password_hash: encodePassword(password),
+      currency: CONFIG.DEFAULT_CURRENCY,
+      theme: 'system',
+      is_active: true
     }]).select().single();
 
     if (error) throw error;
 
-    // Seed default categories
-    const categoriesToSeed = DEFAULT_CATEGORIES.map(c => ({ ...c, profile_id: newUser.id, is_default: true }));
-    await db.from('categories').insert(categoriesToSeed);
+    try {
+      const categoryRows = DEFAULT_CATEGORIES.map(c => ({
+        ...c,
+        profile_id: newUser.id,
+        is_default: true
+      }));
+      const { error: categoryError } = await db.from('categories').insert(categoryRows);
+      if (categoryError) throw categoryError;
 
-    // Seed default primary cash account
-    await db.from('accounts').insert([{
-      profile_id: newUser.id,
-      account_name: 'Cash',
-      account_type: 'Cash',
-      opening_balance: 0
-    }]);
+      const { error: accountError } = await db.from('accounts').insert([{
+        profile_id: newUser.id,
+        account_name: 'Cash',
+        account_type: 'Cash',
+        opening_balance: 0,
+        currency: CONFIG.DEFAULT_CURRENCY,
+        is_active: true
+      }]);
+      if (accountError) throw accountError;
+    } catch (seedError) {
+      // Avoid leaving a half-created profile if default data cannot be created.
+      await db.from('profiles').delete().eq('id', newUser.id);
+      throw seedError;
+    }
 
     state.user = newUser;
     localStorage.setItem('pft_user', JSON.stringify(newUser));
+    document.getElementById('register-form').reset();
     showToast('Account registered successfully', 'success');
-    initializeUserApp();
+    await initializeUserApp();
   } catch (err) {
-    showToast('Registration failed: ' + err.message, 'error');
+    console.error('Registration error:', err);
+    showSyncStatus('Registration Failed', 'error');
+    showToast('Registration failed: ' + getErrorMessage(err), 'error');
   }
 }
 
 function handleLogout() {
-  localStorage.removeItem('pft_user');
+  Object.keys(state.charts).forEach(key => state.charts[key]?.destroy());
+  state.charts = {};
   state.user = null;
-  document.getElementById('app-container').classList.add('hidden');
-  document.getElementById('auth-container').classList.remove('hidden');
+  state.accounts = [];
+  state.categories = [];
+  state.transactions = [];
+  state.transfers = [];
+  state.budgets = [];
+  localStorage.removeItem('pft_user');
+  showAuth();
+  showSyncStatus('Ready', 'synced');
   showToast('Logged out', 'success');
 }
 
-// INITIALIZE DASHBOARD & DATA SYNC
 async function initializeUserApp() {
+  assertLoggedIn();
   document.getElementById('auth-container').classList.add('hidden');
   document.getElementById('app-container').classList.remove('hidden');
-  document.getElementById('user-display-name').textContent = state.user.full_name;
-
+  document.getElementById('user-display-name').textContent = state.user.full_name || state.user.user_id;
   applyTheme(state.user.theme || 'system');
-  await loadAllUserData();
-  renderDashboard();
-}
 
-async function loadAllUserData() {
-  showSyncStatus('Loading...', 'syncing');
   try {
-    const pid = state.user.id;
-
-    const [accRes, catRes, txRes, trRes, bgRes] = await Promise.all([
-      db.from('accounts').select('*').eq('profile_id', pid).eq('is_active', true),
-      db.from('categories').select('*').eq('profile_id', pid),
-      db.from('transactions').select('*').eq('profile_id', pid).order('transaction_date', { ascending: false }),
-      db.from('transfers').select('*').eq('profile_id', pid).order('transfer_date', { ascending: false }),
-      db.from('budgets').select('*').eq('profile_id', pid)
-    ]);
-
-    state.accounts = accRes.data || [];
-    state.categories = catRes.data || [];
-    state.transactions = txRes.data || [];
-    state.transfers = trRes.data || [];
-    state.budgets = bgRes.data || [];
-
-    showSyncStatus('Synced', 'synced');
+    await loadAllUserData();
+    if (state.categories.length === 0 || state.accounts.length === 0) {
+      await ensureDefaultData();
+      await loadAllUserData();
+    }
+    populateFilterDropdowns(true);
+    renderDashboard();
   } catch (err) {
-    showToast('Failed to load cloud data: ' + err.message, 'error');
-    showSyncStatus('Sync Error', 'error');
+    console.error('Initialization failed:', err);
+    showToast('Failed to load cloud data: ' + getErrorMessage(err), 'error');
   }
 }
 
-// CALCULATION LOGIC & BALANCES
+async function loadAllUserData() {
+  assertLoggedIn();
+  const db = requireDb();
+  const pid = state.user.id;
+  showSyncStatus('Loading...', 'syncing');
+
+  try {
+    const results = await Promise.all([
+      db.from('accounts').select('*').eq('profile_id', pid).eq('is_active', true).order('created_at', { ascending: true }),
+      db.from('categories').select('*').eq('profile_id', pid).order('type', { ascending: true }).order('name', { ascending: true }),
+      db.from('transactions').select('*').eq('profile_id', pid).order('transaction_date', { ascending: false }).order('created_at', { ascending: false }),
+      db.from('transfers').select('*').eq('profile_id', pid).order('transfer_date', { ascending: false }).order('created_at', { ascending: false }),
+      db.from('budgets').select('*').eq('profile_id', pid).order('month', { ascending: false })
+    ]);
+
+    const labels = ['accounts', 'categories', 'transactions', 'transfers', 'budgets'];
+    results.forEach((result, index) => {
+      if (result.error) throw new Error(`${labels[index]}: ${getErrorMessage(result.error)}`);
+    });
+
+    state.accounts = results[0].data || [];
+    state.categories = results[1].data || [];
+    state.transactions = results[2].data || [];
+    state.transfers = results[3].data || [];
+    state.budgets = results[4].data || [];
+
+    showSyncStatus('Synced', 'synced');
+  } catch (err) {
+    showSyncStatus('Sync Error', 'error');
+    throw err;
+  }
+}
+
 function calculateAccountBalances() {
   const balances = {};
-  state.accounts.forEach(a => {
-    balances[a.id] = parseFloat(a.opening_balance) || 0;
-  });
+  state.accounts.forEach(a => { balances[a.id] = numberValue(a.opening_balance); });
 
-  // Apply Transactions
   state.transactions.forEach(t => {
-    const amt = parseFloat(t.amount) || 0;
-    if (balances[t.account_id] !== undefined) {
-      if (t.transaction_type === 'Income') balances[t.account_id] += amt;
-      else if (t.transaction_type === 'Expense' || t.transaction_type === 'Other Cost') balances[t.account_id] -= amt;
-    }
+    const amount = numberValue(t.amount);
+    if (balances[t.account_id] === undefined) return;
+    if (t.transaction_type === 'Income') balances[t.account_id] += amount;
+    else if (t.transaction_type === 'Expense' || t.transaction_type === 'Other Cost') balances[t.account_id] -= amount;
   });
 
-  // Apply Transfers (Moves money without affecting totals)
   state.transfers.forEach(tr => {
-    const amt = parseFloat(tr.amount) || 0;
-    if (balances[tr.from_account_id] !== undefined) balances[tr.from_account_id] -= amt;
-    if (balances[tr.to_account_id] !== undefined) balances[tr.to_account_id] += amt;
+    const amount = numberValue(tr.amount);
+    if (balances[tr.from_account_id] !== undefined) balances[tr.from_account_id] -= amount;
+    if (balances[tr.to_account_id] !== undefined) balances[tr.to_account_id] += amount;
   });
 
   return balances;
 }
 
-// VIEWS RENDERERS
 function renderView(viewName) {
-  if (viewName === 'dashboard') renderDashboard();
-  else if (viewName === 'transactions') renderTransactions();
-  else if (viewName === 'accounts') renderAccounts();
-  else if (viewName === 'transfers') renderTransfers();
-  else if (viewName === 'summary') renderMonthlySummary();
-  else if (viewName === 'reports') renderReports();
-  else if (viewName === 'budgets') renderBudgets();
-  else if (viewName === 'settings') renderSettings();
+  switch (viewName) {
+    case 'dashboard': renderDashboard(); break;
+    case 'transactions': renderTransactions(); break;
+    case 'accounts': renderAccounts(); break;
+    case 'transfers': renderTransfers(); break;
+    case 'summary': renderMonthlySummary(); break;
+    case 'reports': renderReports(); break;
+    case 'budgets': renderBudgets(); break;
+    case 'backup': break;
+    case 'settings': renderSettings(); break;
+  }
 }
 
 function renderDashboard() {
-  const curr = state.user.currency || CONFIG.DEFAULT_CURRENCY;
+  if (!state.user) return;
+  const curr = currency();
   const balances = calculateAccountBalances();
-
   let totalIncome = 0, totalExpense = 0, totalOther = 0;
+
   state.transactions.forEach(t => {
-    const amt = parseFloat(t.amount) || 0;
-    if (t.transaction_type === 'Income') totalIncome += amt;
-    else if (t.transaction_type === 'Expense') totalExpense += amt;
-    else if (t.transaction_type === 'Other Cost') totalOther += amt;
+    const amount = numberValue(t.amount);
+    if (t.transaction_type === 'Income') totalIncome += amount;
+    else if (t.transaction_type === 'Expense') totalExpense += amount;
+    else if (t.transaction_type === 'Other Cost') totalOther += amount;
   });
 
-  const totalOpening = state.accounts.reduce((sum, a) => sum + (parseFloat(a.opening_balance) || 0), 0);
+  const totalOpening = state.accounts.reduce((sum, a) => sum + numberValue(a.opening_balance), 0);
   const availableBalance = totalOpening + totalIncome - totalExpense - totalOther;
 
   document.getElementById('dash-total-income').textContent = `${curr}${totalIncome.toFixed(2)}`;
@@ -301,80 +491,76 @@ function renderDashboard() {
   document.getElementById('dash-total-other').textContent = `${curr}${totalOther.toFixed(2)}`;
   document.getElementById('dash-available-balance').textContent = `${curr}${availableBalance.toFixed(2)}`;
 
-  // Account Type Breakdown
-  let cashBal = 0, bankBal = 0, walletBal = 0, otherBal = 0;
+  let cash = 0, bank = 0, wallet = 0, other = 0;
   state.accounts.forEach(a => {
     const bal = balances[a.id] || 0;
-    if (a.account_type === 'Cash') cashBal += bal;
-    else if (a.account_type === 'Bank Account') bankBal += bal;
-    else if (a.account_type === 'Mobile Wallet') walletBal += bal;
-    else otherBal += bal;
+    if (a.account_type === 'Cash') cash += bal;
+    else if (a.account_type === 'Bank Account') bank += bal;
+    else if (a.account_type === 'Mobile Wallet') wallet += bal;
+    else other += bal;
   });
+  document.getElementById('dash-cash-balance').textContent = `${curr}${cash.toFixed(2)}`;
+  document.getElementById('dash-bank-balance').textContent = `${curr}${bank.toFixed(2)}`;
+  document.getElementById('dash-wallet-balance').textContent = `${curr}${wallet.toFixed(2)}`;
+  document.getElementById('dash-other-balance').textContent = `${curr}${other.toFixed(2)}`;
 
-  document.getElementById('dash-cash-balance').textContent = `${curr}${cashBal.toFixed(2)}`;
-  document.getElementById('dash-bank-balance').textContent = `${curr}${bankBal.toFixed(2)}`;
-  document.getElementById('dash-wallet-balance').textContent = `${curr}${walletBal.toFixed(2)}`;
-  document.getElementById('dash-other-balance').textContent = `${curr}${otherBal.toFixed(2)}`;
-
-  // Period Analysis
+  const month = localMonthString();
+  const today = localDateString();
   const now = new Date();
-  const currentMonthStr = now.toISOString().slice(0, 7);
-  const todayStr = now.toISOString().slice(0, 10);
-  
-  // Start of Week (Sunday)
-  const firstDayOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-  const weekStartStr = firstDayOfWeek.toISOString().slice(0, 10);
+  const day = now.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const weekStartDate = new Date(now);
+  weekStartDate.setDate(now.getDate() + mondayOffset);
+  const weekStart = localDateString(weekStartDate);
 
-  let mInc = 0, mExp = 0, mOth = 0, mCount = 0;
-  let dInc = 0, dExp = 0, wInc = 0, wExp = 0;
+  let monthIncome = 0, monthExpense = 0, monthOther = 0;
+  let todayIncome = 0, todayExpense = 0;
+  let weekIncome = 0, weekExpense = 0;
+  let monthCount = 0;
 
   state.transactions.forEach(t => {
-    const amt = parseFloat(t.amount) || 0;
-    const d = t.transaction_date;
-
-    if (d.startsWith(currentMonthStr)) {
-      mCount++;
-      if (t.transaction_type === 'Income') mInc += amt;
-      else if (t.transaction_type === 'Expense') mExp += amt;
-      else if (t.transaction_type === 'Other Cost') mOth += amt;
+    const amount = numberValue(t.amount);
+    const date = t.transaction_date;
+    if (date.startsWith(month)) {
+      monthCount++;
+      if (t.transaction_type === 'Income') monthIncome += amount;
+      else if (t.transaction_type === 'Expense') monthExpense += amount;
+      else if (t.transaction_type === 'Other Cost') monthOther += amount;
     }
-
-    if (d === todayStr) {
-      if (t.transaction_type === 'Income') dInc += amt;
-      else if (t.transaction_type === 'Expense') dExp += amt;
+    if (date === today) {
+      if (t.transaction_type === 'Income') todayIncome += amount;
+      else if (t.transaction_type === 'Expense') todayExpense += amount;
     }
-
-    if (d >= weekStartStr) {
-      if (t.transaction_type === 'Income') wInc += amt;
-      else if (t.transaction_type === 'Expense') wExp += amt;
+    if (date >= weekStart && date <= today) {
+      if (t.transaction_type === 'Income') weekIncome += amount;
+      else if (t.transaction_type === 'Expense') weekExpense += amount;
     }
   });
 
-  document.getElementById('dash-month-income').textContent = `${curr}${mInc.toFixed(2)}`;
-  document.getElementById('dash-month-expense').textContent = `${curr}${mExp.toFixed(2)}`;
-  document.getElementById('dash-month-other').textContent = `${curr}${mOth.toFixed(2)}`;
-  document.getElementById('dash-month-net').textContent = `${curr}${(mInc - mExp - mOth).toFixed(2)}`;
-  document.getElementById('dash-month-count').textContent = mCount;
-
-  document.getElementById('dash-today-income').textContent = `${curr}${dInc.toFixed(2)}`;
-  document.getElementById('dash-today-expense').textContent = `${curr}${dExp.toFixed(2)}`;
-  document.getElementById('dash-week-income').textContent = `${curr}${wInc.toFixed(2)}`;
-  document.getElementById('dash-week-expense').textContent = `${curr}${wExp.toFixed(2)}`;
+  document.getElementById('dash-month-income').textContent = `${curr}${monthIncome.toFixed(2)}`;
+  document.getElementById('dash-month-expense').textContent = `${curr}${monthExpense.toFixed(2)}`;
+  document.getElementById('dash-month-other').textContent = `${curr}${monthOther.toFixed(2)}`;
+  document.getElementById('dash-month-net').textContent = `${curr}${(monthIncome - monthExpense - monthOther).toFixed(2)}`;
+  document.getElementById('dash-month-count').textContent = monthCount;
+  document.getElementById('dash-today-income').textContent = `${curr}${todayIncome.toFixed(2)}`;
+  document.getElementById('dash-today-expense').textContent = `${curr}${todayExpense.toFixed(2)}`;
+  document.getElementById('dash-week-income').textContent = `${curr}${weekIncome.toFixed(2)}`;
+  document.getElementById('dash-week-expense').textContent = `${curr}${weekExpense.toFixed(2)}`;
   document.getElementById('dash-total-tx-count').textContent = state.transactions.length;
 }
 
 function renderTransactions() {
+  if (!state.user) return;
   populateFilterDropdowns();
-  const curr = state.user.currency || CONFIG.DEFAULT_CURRENCY;
-
+  const curr = currency();
   const startDate = document.getElementById('filter-start-date').value;
   const endDate = document.getElementById('filter-end-date').value;
   const type = document.getElementById('filter-type').value;
   const accountId = document.getElementById('filter-account').value;
   const categoryId = document.getElementById('filter-category').value;
-  const search = document.getElementById('filter-search').value.toLowerCase().trim();
+  const search = document.getElementById('filter-search').value.trim().toLowerCase();
 
-  let filtered = state.transactions.filter(t => {
+  const filtered = state.transactions.filter(t => {
     if (startDate && t.transaction_date < startDate) return false;
     if (endDate && t.transaction_date > endDate) return false;
     if (type && t.transaction_type !== type) return false;
@@ -384,56 +570,47 @@ function renderTransactions() {
     return true;
   });
 
-  // Calculate Filtered Totals
-  let fInc = 0, fExp = 0, fOth = 0;
+  let income = 0, expense = 0, other = 0;
   filtered.forEach(t => {
-    const amt = parseFloat(t.amount) || 0;
-    if (t.transaction_type === 'Income') fInc += amt;
-    else if (t.transaction_type === 'Expense') fExp += amt;
-    else if (t.transaction_type === 'Other Cost') fOth += amt;
+    const amount = numberValue(t.amount);
+    if (t.transaction_type === 'Income') income += amount;
+    else if (t.transaction_type === 'Expense') expense += amount;
+    else other += amount;
   });
+  document.getElementById('ft-income').textContent = `${curr}${income.toFixed(2)}`;
+  document.getElementById('ft-expense').textContent = `${curr}${expense.toFixed(2)}`;
+  document.getElementById('ft-other').textContent = `${curr}${other.toFixed(2)}`;
+  document.getElementById('ft-net').textContent = `${curr}${(income - expense - other).toFixed(2)}`;
 
-  document.getElementById('ft-income').textContent = `${curr}${fInc.toFixed(2)}`;
-  document.getElementById('ft-expense').textContent = `${curr}${fExp.toFixed(2)}`;
-  document.getElementById('ft-other').textContent = `${curr}${fOth.toFixed(2)}`;
-  document.getElementById('ft-net').textContent = `${curr}${(fInc - fExp - fOth).toFixed(2)}`;
-
-  // Pagination
-  const totalPages = Math.ceil(filtered.length / state.pagination.limit) || 1;
-  if (state.pagination.page > totalPages) state.pagination.page = totalPages;
-
-  const startIdx = (state.pagination.page - 1) * state.pagination.limit;
-  const paginated = filtered.slice(startIdx, startIdx + state.pagination.limit);
-
+  const totalPages = Math.max(1, Math.ceil(filtered.length / state.pagination.limit));
+  state.pagination.page = Math.min(state.pagination.page, totalPages);
+  const start = (state.pagination.page - 1) * state.pagination.limit;
+  const rows = filtered.slice(start, start + state.pagination.limit);
   document.getElementById('page-info').textContent = `Page ${state.pagination.page} of ${totalPages}`;
 
   const tbody = document.getElementById('tx-table-body');
   tbody.innerHTML = '';
-
-  if (paginated.length === 0) {
+  if (!rows.length) {
     tbody.innerHTML = `<tr><td colspan="7" class="text-center">No transactions match the selected filters.</td></tr>`;
     return;
   }
 
-  paginated.forEach(t => {
+  rows.forEach(t => {
     const acc = state.accounts.find(a => a.id === t.account_id);
     const cat = state.categories.find(c => c.id === t.category_id);
+    const typeClass = t.transaction_type === 'Income' ? 'text-success' : (t.transaction_type === 'Expense' ? 'text-danger' : 'text-warning');
     const tr = document.createElement('tr');
-    
-    let typeClass = t.transaction_type === 'Income' ? 'text-success' : (t.transaction_type === 'Expense' ? 'text-danger' : 'text-warning');
-
     tr.innerHTML = `
-      <td>${t.transaction_date}</td>
-      <td><span class="${typeClass}">${t.transaction_type}</span></td>
-      <td>${acc ? acc.account_name : 'Unknown'}</td>
-      <td>${cat ? cat.name : 'Unknown'}</td>
-      <td>${t.description || '-'}</td>
-      <td class="${typeClass}"><strong>${curr}${parseFloat(t.amount).toFixed(2)}</strong></td>
+      <td>${escapeHtml(t.transaction_date)}</td>
+      <td><span class="${typeClass}">${escapeHtml(t.transaction_type)}</span></td>
+      <td>${escapeHtml(acc?.account_name || 'Unknown')}</td>
+      <td>${escapeHtml(cat?.name || 'Unknown')}</td>
+      <td>${escapeHtml(t.description || '-')}</td>
+      <td class="${typeClass}"><strong>${curr}${numberValue(t.amount).toFixed(2)}</strong></td>
       <td>
         <button class="btn btn-sm btn-outline" onclick="editTransaction('${t.id}')">Edit</button>
         <button class="btn btn-sm btn-danger" onclick="deleteTransaction('${t.id}')">Delete</button>
-      </td>
-    `;
+      </td>`;
     tbody.appendChild(tr);
   });
 }
@@ -441,29 +618,25 @@ function renderTransactions() {
 function renderAccounts() {
   const container = document.getElementById('accounts-grid-container');
   container.innerHTML = '';
-  const curr = state.user.currency || CONFIG.DEFAULT_CURRENCY;
   const balances = calculateAccountBalances();
-
-  if (state.accounts.length === 0) {
-    container.innerHTML = `<div class="card" style="grid-column: 1/-1;">No financial accounts created yet.</div>`;
+  if (!state.accounts.length) {
+    container.innerHTML = `<div class="card" style="grid-column:1/-1;">No financial accounts created yet.</div>`;
     return;
   }
 
   state.accounts.forEach(acc => {
-    const bal = balances[acc.id] || 0;
     const card = document.createElement('div');
     card.className = 'card';
     card.innerHTML = `
-      <h3>${acc.account_name}</h3>
-      <p class="card-subtitle">${acc.account_type} ${acc.provider_name ? '• ' + acc.provider_name : ''}</p>
-      <div class="card-amount" style="margin: 12px 0;">${curr}${bal.toFixed(2)}</div>
-      <p class="card-subtitle">Opening: ${curr}${parseFloat(acc.opening_balance).toFixed(2)}</p>
-      ${acc.last_four_digits ? `<p class="card-subtitle">Card/Acc ending: **** ${acc.last_four_digits}</p>` : ''}
-      <div class="btn-group" style="margin-top: 15px;">
+      <h3>${escapeHtml(acc.account_name)}</h3>
+      <p class="card-subtitle">${escapeHtml(acc.account_type)}${acc.provider_name ? ' • ' + escapeHtml(acc.provider_name) : ''}</p>
+      <div class="card-amount" style="margin:12px 0;">${currency()}${(balances[acc.id] || 0).toFixed(2)}</div>
+      <p class="card-subtitle">Opening: ${currency()}${numberValue(acc.opening_balance).toFixed(2)}</p>
+      ${acc.last_four_digits ? `<p class="card-subtitle">Card/Acc ending: **** ${escapeHtml(acc.last_four_digits)}</p>` : ''}
+      <div class="btn-group" style="margin-top:15px;">
         <button class="btn btn-sm btn-outline" onclick="editAccount('${acc.id}')">Edit</button>
         <button class="btn btn-sm btn-danger" onclick="deactivateAccount('${acc.id}')">Deactivate</button>
-      </div>
-    `;
+      </div>`;
     container.appendChild(card);
   });
 }
@@ -471,28 +644,24 @@ function renderAccounts() {
 function renderTransfers() {
   const tbody = document.getElementById('transfer-table-body');
   tbody.innerHTML = '';
-  const curr = state.user.currency || CONFIG.DEFAULT_CURRENCY;
-
-  if (state.transfers.length === 0) {
+  if (!state.transfers.length) {
     tbody.innerHTML = `<tr><td colspan="6" class="text-center">No transfers recorded.</td></tr>`;
     return;
   }
-
   state.transfers.forEach(tr => {
-    const fromAcc = state.accounts.find(a => a.id === tr.from_account_id);
-    const toAcc = state.accounts.find(a => a.id === tr.to_account_id);
+    const from = state.accounts.find(a => a.id === tr.from_account_id);
+    const to = state.accounts.find(a => a.id === tr.to_account_id);
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td>${tr.transfer_date}</td>
-      <td>${fromAcc ? fromAcc.account_name : 'Unknown'}</td>
-      <td>${toAcc ? toAcc.account_name : 'Unknown'}</td>
-      <td>${tr.note || '-'}</td>
-      <td><strong>${curr}${parseFloat(tr.amount).toFixed(2)}</strong></td>
+      <td>${escapeHtml(tr.transfer_date)}</td>
+      <td>${escapeHtml(from?.account_name || 'Unknown')}</td>
+      <td>${escapeHtml(to?.account_name || 'Unknown')}</td>
+      <td>${escapeHtml(tr.note || '-')}</td>
+      <td><strong>${currency()}${numberValue(tr.amount).toFixed(2)}</strong></td>
       <td>
         <button class="btn btn-sm btn-outline" onclick="editTransfer('${tr.id}')">Edit</button>
         <button class="btn btn-sm btn-danger" onclick="deleteTransfer('${tr.id}')">Delete</button>
-      </td>
-    `;
+      </td>`;
     tbody.appendChild(row);
   });
 }
@@ -500,57 +669,42 @@ function renderTransfers() {
 function renderMonthlySummary() {
   const selectedMonth = document.getElementById('summary-month-select').value;
   if (!selectedMonth) return;
-
-  const year = selectedMonth.split('-')[0];
+  const year = selectedMonth.slice(0, 4);
   document.getElementById('summary-year-label').textContent = year;
-  const curr = state.user.currency || CONFIG.DEFAULT_CURRENCY;
-
-  let mInc = 0, mExp = 0, mOth = 0;
+  let inc = 0, exp = 0, oth = 0;
   state.transactions.forEach(t => {
-    if (t.transaction_date.startsWith(selectedMonth)) {
-      const amt = parseFloat(t.amount) || 0;
-      if (t.transaction_type === 'Income') mInc += amt;
-      else if (t.transaction_type === 'Expense') mExp += amt;
-      else if (t.transaction_type === 'Other Cost') mOth += amt;
-    }
+    if (!t.transaction_date.startsWith(selectedMonth)) return;
+    const amount = numberValue(t.amount);
+    if (t.transaction_type === 'Income') inc += amount;
+    else if (t.transaction_type === 'Expense') exp += amount;
+    else oth += amount;
   });
+  document.getElementById('sm-income').textContent = `${currency()}${inc.toFixed(2)}`;
+  document.getElementById('sm-expense').textContent = `${currency()}${exp.toFixed(2)}`;
+  document.getElementById('sm-other').textContent = `${currency()}${oth.toFixed(2)}`;
+  document.getElementById('sm-net').textContent = `${currency()}${(inc - exp - oth).toFixed(2)}`;
 
-  document.getElementById('sm-income').textContent = `${curr}${mInc.toFixed(2)}`;
-  document.getElementById('sm-expense').textContent = `${curr}${mExp.toFixed(2)}`;
-  document.getElementById('sm-other').textContent = `${curr}${mOth.toFixed(2)}`;
-  document.getElementById('sm-net').textContent = `${curr}${(mInc - mExp - mOth).toFixed(2)}`;
-
-  // Render Yearly Breakdown Matrix
   const tbody = document.getElementById('yearly-summary-table');
   tbody.innerHTML = '';
-
-  const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-  months.forEach((m, idx) => {
-    const key = `${year}-${m}`;
-    let inc = 0, exp = 0, oth = 0;
-
+  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  for (let i = 1; i <= 12; i++) {
+    const key = `${year}-${String(i).padStart(2, '0')}`;
+    let a = 0, b = 0, c = 0;
     state.transactions.forEach(t => {
-      if (t.transaction_date.startsWith(key)) {
-        const amt = parseFloat(t.amount) || 0;
-        if (t.transaction_type === 'Income') inc += amt;
-        else if (t.transaction_type === 'Expense') exp += amt;
-        else if (t.transaction_type === 'Other Cost') oth += amt;
-      }
+      if (!t.transaction_date.startsWith(key)) return;
+      const amount = numberValue(t.amount);
+      if (t.transaction_type === 'Income') a += amount;
+      else if (t.transaction_type === 'Expense') b += amount;
+      else c += amount;
     });
-
-    const net = inc - exp - oth;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><strong>${monthNames[idx]} ${year}</strong></td>
-      <td class="text-success">${curr}${inc.toFixed(2)}</td>
-      <td class="text-danger">${curr}${exp.toFixed(2)}</td>
-      <td class="text-warning">${curr}${oth.toFixed(2)}</td>
-      <td><strong>${curr}${net.toFixed(2)}</strong></td>
-    `;
-    tbody.appendChild(tr);
-  });
+    const row = document.createElement('tr');
+    row.innerHTML = `<td><strong>${names[i - 1]} ${year}</strong></td>
+      <td class="text-success">${currency()}${a.toFixed(2)}</td>
+      <td class="text-danger">${currency()}${b.toFixed(2)}</td>
+      <td class="text-warning">${currency()}${c.toFixed(2)}</td>
+      <td><strong>${currency()}${(a - b - c).toFixed(2)}</strong></td>`;
+    tbody.appendChild(row);
+  }
 }
 
 function shiftSummaryMonth(delta) {
@@ -558,147 +712,114 @@ function shiftSummaryMonth(delta) {
   if (!el.value) return;
   const [y, m] = el.value.split('-').map(Number);
   const d = new Date(y, m - 1 + delta, 1);
-  el.value = d.toISOString().slice(0, 7);
+  el.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   renderMonthlySummary();
 }
 
-// CHARTS & REPORTS INTEGRATION
 function renderReports() {
-  if (typeof Chart === 'undefined') {
-    console.warn("Chart.js failed to load. Reports charts bypassed safely.");
-    return;
-  }
-
-  const curr = state.user.currency || CONFIG.DEFAULT_CURRENCY;
-
-  // 1. Expense by Category
+  if (typeof Chart === 'undefined') return;
+  const balances = calculateAccountBalances();
   const catTotals = {};
   state.transactions.filter(t => t.transaction_type === 'Expense').forEach(t => {
     const cat = state.categories.find(c => c.id === t.category_id);
-    const catName = cat ? cat.name : 'Other';
-    catTotals[catName] = (catTotals[catName] || 0) + parseFloat(t.amount);
+    const name = cat?.name || 'Other';
+    catTotals[name] = (catTotals[name] || 0) + numberValue(t.amount);
   });
 
-  renderChart('chart-cat-exp', 'doughnut', {
-    labels: Object.keys(catTotals),
-    datasets: [{
-      data: Object.values(catTotals),
-      backgroundColor: ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#06b6d4', '#6366f1', '#a855f7']
-    }]
-  });
-
-  // 2. Account Balance Distribution
-  const balances = calculateAccountBalances();
-  const accLabels = [];
-  const accData = [];
-  state.accounts.forEach(a => {
-    accLabels.push(a.account_name);
-    accData.push(balances[a.id] || 0);
-  });
-
-  renderChart('chart-acc-dist', 'pie', {
-    labels: accLabels,
-    datasets: [{
-      data: accData,
-      backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899']
-    }]
-  });
-
-  // 3. Monthly Income vs Expense (Last 6 months)
-  const last6Months = [];
+  const months = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date();
-    d.setMonth(d.getMonth() - i);
-    last6Months.push(d.toISOString().slice(0, 7));
+    d.setMonth(d.getMonth() - i, 1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
 
-  const incData = [], expData = [];
-  last6Months.forEach(m => {
-    let inc = 0, exp = 0;
+  const incomes = [], expenses = [], balancesTrend = [];
+  months.forEach(m => {
+    let income = 0, expense = 0, other = 0;
     state.transactions.forEach(t => {
-      if (t.transaction_date.startsWith(m)) {
-        if (t.transaction_type === 'Income') inc += parseFloat(t.amount);
-        else if (t.transaction_type === 'Expense') exp += parseFloat(t.amount);
-      }
+      if (!t.transaction_date.startsWith(m)) return;
+      const amount = numberValue(t.amount);
+      if (t.transaction_type === 'Income') income += amount;
+      else if (t.transaction_type === 'Expense') expense += amount;
+      else other += amount;
     });
-    incData.push(inc);
-    expData.push(exp);
+    incomes.push(income);
+    expenses.push(expense);
+    balancesTrend.push(income - expense - other);
   });
 
   renderChart('chart-inc-exp', 'bar', {
-    labels: last6Months,
+    labels: months,
     datasets: [
-      { label: 'Income', data: incData, backgroundColor: '#16a34a' },
-      { label: 'Expense', data: expData, backgroundColor: '#dc2626' }
+      { label: 'Income', data: incomes },
+      { label: 'Expense', data: expenses }
     ]
+  });
+  renderChart('chart-cat-exp', 'doughnut', {
+    labels: Object.keys(catTotals),
+    datasets: [{ label: 'Expenses', data: Object.values(catTotals) }]
+  });
+  renderChart('chart-balance-trend', 'line', {
+    labels: months,
+    datasets: [{ label: 'Net Monthly Balance', data: balancesTrend, tension: 0.25 }]
+  });
+  renderChart('chart-acc-dist', 'pie', {
+    labels: state.accounts.map(a => a.account_name),
+    datasets: [{ label: 'Account Balance', data: state.accounts.map(a => balances[a.id] || 0) }]
   });
 }
 
 function renderChart(canvasId, type, data) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
   if (state.charts[canvasId]) state.charts[canvasId].destroy();
-  const ctx = document.getElementById(canvasId).getContext('2d');
-  state.charts[canvasId] = new Chart(ctx, {
-    type: type,
-    data: data,
+  state.charts[canvasId] = new Chart(canvas.getContext('2d'), {
+    type,
+    data,
     options: { responsive: true, maintainAspectRatio: false }
   });
 }
 
 function renderBudgets() {
-  const selectedMonth = document.getElementById('budget-month-select').value;
+  const selectedMonth = document.getElementById('budget-month-select').value || localMonthString();
   const container = document.getElementById('budgets-container');
   container.innerHTML = '';
-  const curr = state.user.currency || CONFIG.DEFAULT_CURRENCY;
-
   const monthBudgets = state.budgets.filter(b => b.month === selectedMonth);
-
-  if (monthBudgets.length === 0) {
-    container.innerHTML = `<div class="card" style="grid-column:1/-1;">No budgets set for ${selectedMonth}. Click "+ Set Category Budget" to create one.</div>`;
+  if (!monthBudgets.length) {
+    container.innerHTML = `<div class="card" style="grid-column:1/-1;">No budgets set for ${escapeHtml(selectedMonth)}. Click "+ Set Category Budget" to create one.</div>`;
     return;
   }
-
   monthBudgets.forEach(b => {
     const cat = state.categories.find(c => c.id === b.category_id);
-    const catName = cat ? cat.name : 'Unknown Category';
-
-    // Calculate actual spending for this category in this month
-    let actual = 0;
-    state.transactions.forEach(t => {
-      if (t.category_id === b.category_id && t.transaction_date.startsWith(selectedMonth) && t.transaction_type === 'Expense') {
-        actual += parseFloat(t.amount);
-      }
-    });
-
-    const budgetAmount = parseFloat(b.amount);
+    const actual = state.transactions
+      .filter(t => t.category_id === b.category_id && t.transaction_date.startsWith(selectedMonth) && t.transaction_type === 'Expense')
+      .reduce((sum, t) => sum + numberValue(t.amount), 0);
+    const budgetAmount = numberValue(b.amount);
     const remaining = budgetAmount - actual;
     const percentage = budgetAmount > 0 ? Math.min(Math.round((actual / budgetAmount) * 100), 100) : 0;
-
-    let fillClass = '';
-    if (percentage >= 100) fillClass = 'danger';
-    else if (percentage >= 80) fillClass = 'warning';
-
+    const fillClass = percentage >= 100 ? 'danger' : (percentage >= 80 ? 'warning' : '');
     const card = document.createElement('div');
     card.className = 'card';
     card.innerHTML = `
-      <div style="display:flex; justify-between; align-items:center;">
-        <h4>${catName}</h4>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h4>${escapeHtml(cat?.name || 'Unknown Category')}</h4>
         <span class="badge ${remaining < 0 ? 'badge-error' : 'badge-synced'}">${percentage}% Used</span>
       </div>
-      <div class="progress-bar-bg">
-        <div class="progress-bar-fill ${fillClass}" style="width: ${percentage}%;"></div>
-      </div>
-      <p class="card-subtitle">Budget: ${curr}${budgetAmount.toFixed(2)} | Actual: ${curr}${actual.toFixed(2)}</p>
-      <p class="card-subtitle" style="margin-top:4px;"><strong>Remaining: ${curr}${remaining.toFixed(2)}</strong></p>
-    `;
+      <div class="progress-bar-bg"><div class="progress-bar-fill ${fillClass}" style="width:${percentage}%;"></div></div>
+      <p class="card-subtitle">Budget: ${currency()}${budgetAmount.toFixed(2)} | Actual: ${currency()}${actual.toFixed(2)}</p>
+      <p class="card-subtitle" style="margin-top:4px;"><strong>Remaining: ${currency()}${remaining.toFixed(2)}</strong></p>`;
     container.appendChild(card);
   });
 }
 
-// MODAL OPENERS & HANDLERS
 function openTransactionModal(editId = null) {
   populateAccountSelect('tx-account');
   populateCategorySelect();
-  document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
+  const form = document.getElementById('tx-form');
+  form.reset();
+  document.getElementById('tx-id').value = '';
+  document.getElementById('tx-date').value = localDateString();
+  document.getElementById('tx-modal-title').textContent = 'Add Transaction';
 
   if (editId) {
     const tx = state.transactions.find(t => t.id === editId);
@@ -713,17 +834,16 @@ function openTransactionModal(editId = null) {
       document.getElementById('tx-desc').value = tx.description || '';
       document.getElementById('tx-modal-title').textContent = 'Edit Transaction';
     }
-  } else {
-    document.getElementById('tx-id').value = '';
-    document.getElementById('tx-form').reset();
-    document.getElementById('tx-modal-title').textContent = 'Add Transaction';
-    document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
   }
-
   document.getElementById('modal-tx').classList.add('active');
 }
 
 function openAccountModal(editId = null) {
+  const form = document.getElementById('acc-form');
+  form.reset();
+  document.getElementById('acc-id').value = '';
+  document.getElementById('acc-opening').value = '0';
+  document.getElementById('acc-modal-title').textContent = 'Add Financial Account';
   if (editId) {
     const acc = state.accounts.find(a => a.id === editId);
     if (acc) {
@@ -736,10 +856,6 @@ function openAccountModal(editId = null) {
       document.getElementById('acc-notes').value = acc.notes || '';
       document.getElementById('acc-modal-title').textContent = 'Edit Account';
     }
-  } else {
-    document.getElementById('acc-id').value = '';
-    document.getElementById('acc-form').reset();
-    document.getElementById('acc-modal-title').textContent = 'Add Financial Account';
   }
   document.getElementById('modal-account').classList.add('active');
 }
@@ -747,7 +863,11 @@ function openAccountModal(editId = null) {
 function openTransferModal(editId = null) {
   populateAccountSelect('tr-from');
   populateAccountSelect('tr-to');
-  document.getElementById('tr-date').value = new Date().toISOString().slice(0, 10);
+  const form = document.getElementById('transfer-form');
+  form.reset();
+  document.getElementById('transfer-id').value = '';
+  document.getElementById('tr-date').value = localDateString();
+  document.getElementById('transfer-modal-title').textContent = 'New Account Transfer';
 
   if (editId) {
     const tr = state.transfers.find(t => t.id === editId);
@@ -760,13 +880,7 @@ function openTransferModal(editId = null) {
       document.getElementById('tr-note').value = tr.note || '';
       document.getElementById('transfer-modal-title').textContent = 'Edit Transfer';
     }
-  } else {
-    document.getElementById('transfer-id').value = '';
-    document.getElementById('transfer-form').reset();
-    document.getElementById('transfer-modal-title').textContent = 'New Account Transfer';
-    document.getElementById('tr-date').value = new Date().toISOString().slice(0, 10);
   }
-
   document.getElementById('modal-transfer').classList.add('active');
 }
 
@@ -774,202 +888,232 @@ function openBudgetModal() {
   const select = document.getElementById('budget-form-category');
   select.innerHTML = '';
   state.categories.filter(c => c.type === 'Expense').forEach(c => {
-    select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+    select.innerHTML += `<option value="${c.id}">${escapeHtml(c.name)}</option>`;
   });
-  document.getElementById('budget-form-month').value = new Date().toISOString().slice(0, 7);
+  document.getElementById('budget-form-month').value = document.getElementById('budget-month-select').value || localMonthString();
+  document.getElementById('budget-form-amount').value = '';
   document.getElementById('modal-budget').classList.add('active');
 }
 
 function closeModal(modalId) {
-  document.getElementById(modalId).classList.remove('active');
+  document.getElementById(modalId)?.classList.remove('active');
 }
 
-// PERSISTENCE ACTIONS (AUTO-SAVE TO SUPABASE)
 async function handleSaveTransaction(e) {
   e.preventDefault();
+  assertLoggedIn();
+  const db = requireDb();
   const id = document.getElementById('tx-id').value;
+  const amount = numberValue(document.getElementById('tx-amount').value);
   const payload = {
     profile_id: state.user.id,
     transaction_date: document.getElementById('tx-date').value,
     transaction_type: document.getElementById('tx-type').value,
     account_id: document.getElementById('tx-account').value,
     category_id: document.getElementById('tx-category').value,
-    amount: parseFloat(document.getElementById('tx-amount').value),
+    amount,
     description: document.getElementById('tx-desc').value.trim()
   };
 
+  if (!payload.account_id || !payload.category_id || amount <= 0 || !payload.transaction_date) {
+    showToast('Please complete all transaction fields.', 'error');
+    return;
+  }
+
   try {
     showSyncStatus('Saving...', 'syncing');
-    if (id) {
-      const { error } = await db.from('transactions').update(payload).eq('id', id);
-      if (error) throw error;
-    } else {
-      const { error } = await db.from('transactions').insert([payload]);
-      if (error) throw error;
-    }
+    const result = id
+      ? await db.from('transactions').update(payload).eq('id', id).eq('profile_id', state.user.id)
+      : await db.from('transactions').insert([payload]);
+    if (result.error) throw result.error;
     closeModal('modal-tx');
     await loadAllUserData();
     renderTransactions();
     renderDashboard();
     showToast('Transaction saved', 'success');
   } catch (err) {
-    showToast('Save failed: ' + err.message, 'error');
+    console.error(err);
+    showSyncStatus('Save Error', 'error');
+    showToast('Save failed: ' + getErrorMessage(err), 'error');
   }
 }
 
 async function handleSaveAccount(e) {
   e.preventDefault();
+  assertLoggedIn();
+  const db = requireDb();
   const id = document.getElementById('acc-id').value;
   const payload = {
     profile_id: state.user.id,
     account_name: document.getElementById('acc-name').value.trim(),
     account_type: document.getElementById('acc-type').value,
-    provider_name: document.getElementById('acc-provider').value.trim(),
+    provider_name: document.getElementById('acc-provider').value.trim() || null,
     last_four_digits: document.getElementById('acc-digits').value.trim() || null,
-    opening_balance: parseFloat(document.getElementById('acc-opening').value) || 0,
-    notes: document.getElementById('acc-notes').value.trim()
+    opening_balance: numberValue(document.getElementById('acc-opening').value),
+    notes: document.getElementById('acc-notes').value.trim() || null
   };
-
+  if (!payload.account_name) {
+    showToast('Account name is required.', 'error');
+    return;
+  }
   try {
     showSyncStatus('Saving...', 'syncing');
-    if (id) {
-      const { error } = await db.from('accounts').update(payload).eq('id', id);
-      if (error) throw error;
-    } else {
-      const { error } = await db.from('accounts').insert([payload]);
-      if (error) throw error;
-    }
+    const result = id
+      ? await db.from('accounts').update(payload).eq('id', id).eq('profile_id', state.user.id)
+      : await db.from('accounts').insert([payload]);
+    if (result.error) throw result.error;
     closeModal('modal-account');
     await loadAllUserData();
     renderAccounts();
     renderDashboard();
+    populateFilterDropdowns(true);
     showToast('Account saved', 'success');
   } catch (err) {
-    showToast('Save failed: ' + err.message, 'error');
+    console.error(err);
+    showToast('Save failed: ' + getErrorMessage(err), 'error');
   }
 }
 
 async function handleSaveTransfer(e) {
   e.preventDefault();
+  assertLoggedIn();
+  const db = requireDb();
   const id = document.getElementById('transfer-id').value;
   const fromId = document.getElementById('tr-from').value;
   const toId = document.getElementById('tr-to').value;
-  const amount = parseFloat(document.getElementById('tr-amount').value);
-
-  if (fromId === toId) {
-    showToast('Source and destination accounts must be different', 'error');
+  const amount = numberValue(document.getElementById('tr-amount').value);
+  if (!fromId || !toId || fromId === toId) {
+    showToast('Source and destination accounts must be different.', 'error');
+    return;
+  }
+  if (amount <= 0) {
+    showToast('Transfer amount must be greater than zero.', 'error');
     return;
   }
 
-  // Prevent Transfer above available balance
   const balances = calculateAccountBalances();
-  if (balances[fromId] < amount) {
-    if (!confirm('Warning: Transfer amount exceeds available balance in source account. Proceed anyway?')) {
-      return;
-    }
+  let available = balances[fromId] || 0;
+  // When editing an existing transfer, temporarily add its old amount back to the source.
+  if (id) {
+    const old = state.transfers.find(t => t.id === id);
+    if (old && old.from_account_id === fromId) available += numberValue(old.amount);
   }
+  if (available < amount && !confirm('Warning: Transfer amount exceeds available balance in source account. Proceed anyway?')) return;
 
   const payload = {
     profile_id: state.user.id,
     from_account_id: fromId,
     to_account_id: toId,
     transfer_date: document.getElementById('tr-date').value,
-    amount: amount,
-    note: document.getElementById('tr-note').value.trim()
+    amount,
+    note: document.getElementById('tr-note').value.trim() || null
   };
-
   try {
     showSyncStatus('Saving...', 'syncing');
-    if (id) {
-      const { error } = await db.from('transfers').update(payload).eq('id', id);
-      if (error) throw error;
-    } else {
-      const { error } = await db.from('transfers').insert([payload]);
-      if (error) throw error;
-    }
+    const result = id
+      ? await db.from('transfers').update(payload).eq('id', id).eq('profile_id', state.user.id)
+      : await db.from('transfers').insert([payload]);
+    if (result.error) throw result.error;
     closeModal('modal-transfer');
     await loadAllUserData();
     renderTransfers();
     renderDashboard();
-    showToast('Transfer completed', 'success');
+    showToast('Transfer saved', 'success');
   } catch (err) {
-    showToast('Transfer failed: ' + err.message, 'error');
+    console.error(err);
+    showToast('Transfer failed: ' + getErrorMessage(err), 'error');
   }
 }
 
 async function handleSaveBudget(e) {
   e.preventDefault();
-  const payload = {
-    profile_id: state.user.id,
-    month: document.getElementById('budget-form-month').value,
-    category_id: document.getElementById('budget-form-category').value,
-    amount: parseFloat(document.getElementById('budget-form-amount').value)
-  };
-
+  assertLoggedIn();
+  const db = requireDb();
+  const month = document.getElementById('budget-form-month').value;
+  const categoryId = document.getElementById('budget-form-category').value;
+  const amount = numberValue(document.getElementById('budget-form-amount').value);
+  if (!/^\d{4}-\d{2}$/.test(month) || !categoryId || amount < 0) {
+    showToast('Please enter a valid month, category, and amount.', 'error');
+    return;
+  }
   try {
     showSyncStatus('Saving...', 'syncing');
-    const { error } = await db.from('budgets').upsert(payload, { onConflict: 'profile_id,month,category_id' });
+    const { error } = await db.from('budgets').upsert({
+      profile_id: state.user.id,
+      month,
+      category_id: categoryId,
+      amount
+    }, { onConflict: 'profile_id,month,category_id' });
     if (error) throw error;
     closeModal('modal-budget');
+    document.getElementById('budget-month-select').value = month;
     await loadAllUserData();
     renderBudgets();
     showToast('Budget saved', 'success');
   } catch (err) {
-    showToast('Budget save failed: ' + err.message, 'error');
+    console.error(err);
+    showToast('Budget save failed: ' + getErrorMessage(err), 'error');
   }
 }
 
-// EDIT / DELETE HELPERS
 function editTransaction(id) { openTransactionModal(id); }
+
 async function deleteTransaction(id) {
   if (!confirm('Are you sure you want to delete this transaction?')) return;
   try {
     showSyncStatus('Deleting...', 'syncing');
-    await db.from('transactions').delete().eq('id', id);
+    const { error } = await requireDb().from('transactions').delete().eq('id', id).eq('profile_id', state.user.id);
+    if (error) throw error;
     await loadAllUserData();
     renderTransactions();
     renderDashboard();
     showToast('Transaction deleted', 'success');
   } catch (err) {
-    showToast('Delete failed: ' + err.message, 'error');
+    showToast('Delete failed: ' + getErrorMessage(err), 'error');
   }
 }
 
 function editAccount(id) { openAccountModal(id); }
+
 async function deactivateAccount(id) {
   if (!confirm('Are you sure you want to deactivate this account?')) return;
   try {
     showSyncStatus('Updating...', 'syncing');
-    await db.from('accounts').update({ is_active: false }).eq('id', id);
+    const { error } = await requireDb().from('accounts').update({ is_active: false }).eq('id', id).eq('profile_id', state.user.id);
+    if (error) throw error;
     await loadAllUserData();
+    populateFilterDropdowns(true);
     renderAccounts();
     renderDashboard();
     showToast('Account deactivated', 'success');
   } catch (err) {
-    showToast('Deactivation failed: ' + err.message, 'error');
+    showToast('Deactivation failed: ' + getErrorMessage(err), 'error');
   }
 }
 
 function editTransfer(id) { openTransferModal(id); }
+
 async function deleteTransfer(id) {
   if (!confirm('Are you sure you want to delete this transfer?')) return;
   try {
     showSyncStatus('Deleting...', 'syncing');
-    await db.from('transfers').delete().eq('id', id);
+    const { error } = await requireDb().from('transfers').delete().eq('id', id).eq('profile_id', state.user.id);
+    if (error) throw error;
     await loadAllUserData();
     renderTransfers();
     renderDashboard();
     showToast('Transfer deleted', 'success');
   } catch (err) {
-    showToast('Delete failed: ' + err.message, 'error');
+    showToast('Delete failed: ' + getErrorMessage(err), 'error');
   }
 }
 
-// BACKUP & EXPORT
 function exportData(type) {
+  if (!state.user) return;
   if (type === 'json') {
-    const fullBackup = {
-      profile: state.user,
+    const backup = {
+      version: 2,
+      profile: { ...state.user, password_hash: undefined },
       accounts: state.accounts,
       categories: state.categories,
       transactions: state.transactions,
@@ -977,144 +1121,300 @@ function exportData(type) {
       budgets: state.budgets,
       exported_at: new Date().toISOString()
     };
-    downloadFile(`finance_backup_${state.user.user_id}.json`, JSON.stringify(fullBackup, null, 2), 'application/json');
+    downloadFile(`finance_backup_${state.user.user_id}.json`, JSON.stringify(backup, null, 2), 'application/json');
   } else if (type === 'csv') {
-    let csv = 'date,type,account,category,description,amount\n';
+    const rows = [['date','type','account','category','description','amount']];
     state.transactions.forEach(t => {
       const acc = state.accounts.find(a => a.id === t.account_id);
       const cat = state.categories.find(c => c.id === t.category_id);
-      csv += `"${t.transaction_date}","${t.transaction_type}","${acc ? acc.account_name : ''}","${cat ? cat.name : ''}","${t.description || ''}",${t.amount}\n`;
+      rows.push([t.transaction_date, t.transaction_type, acc?.account_name || '', cat?.name || '', t.description || '', t.amount]);
     });
+    const csv = rows.map(row => row.map(csvEscape).join(',')).join('\n');
     downloadFile(`transactions_${state.user.user_id}.csv`, csv, 'text/csv');
   }
 }
 
+function csvEscape(value) {
+  const text = String(value ?? '');
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
 function downloadFile(filename, text, mimeType) {
+  const blob = new Blob([text], { type: `${mimeType};charset=utf-8` });
+  const url = URL.createObjectURL(blob);
   const element = document.createElement('a');
-  element.setAttribute('href', `data:${mimeType};charset=utf-8,` + encodeURIComponent(text));
-  element.setAttribute('download', filename);
-  element.style.display = 'none';
+  element.href = url;
+  element.download = filename;
   document.body.appendChild(element);
   element.click();
-  document.body.removeChild(element);
+  element.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 async function importData() {
-  const fileInput = document.getElementById('import-file-input');
-  if (!fileInput.files.length) {
+  const input = document.getElementById('import-file-input');
+  if (!input.files.length) {
     showToast('Please select a file to import', 'error');
     return;
   }
-
   if (!confirm('Importing data will merge records into your account. Continue?')) return;
 
-  const file = fileInput.files[0];
-  const reader = new FileReader();
-
-  reader.onload = async (e) => {
-    try {
-      showSyncStatus('Importing...', 'syncing');
-      if (file.name.endsWith('.json')) {
-        const data = JSON.parse(e.target.result);
-        if (data.transactions && Array.isArray(data.transactions)) {
-          const txsToInsert = data.transactions.map(t => ({
-            profile_id: state.user.id,
-            account_id: state.accounts[0].id, // Safely fallback to primary account
-            category_id: state.categories[0].id,
-            transaction_date: t.transaction_date || new Date().toISOString().slice(0,10),
-            transaction_type: t.transaction_type || 'Expense',
-            description: t.description || 'Imported Transaction',
-            amount: parseFloat(t.amount) || 0
-          }));
-          await db.from('transactions').insert(txsToInsert);
-        }
-      }
-      showToast('Import completed successfully', 'success');
-      await loadAllUserData();
-      renderDashboard();
-    } catch (err) {
-      showToast('Import error: ' + err.message, 'error');
-    }
-  };
-
-  reader.readAsText(file);
+  const file = input.files[0];
+  try {
+    showSyncStatus('Importing...', 'syncing');
+    const text = await file.text();
+    if (file.name.toLowerCase().endsWith('.json')) await importJson(text);
+    else if (file.name.toLowerCase().endsWith('.csv')) await importCsv(text);
+    else throw new Error('Unsupported file type. Use JSON or CSV.');
+    input.value = '';
+    await loadAllUserData();
+    renderDashboard();
+    showToast('Import completed successfully', 'success');
+  } catch (err) {
+    console.error(err);
+    showToast('Import error: ' + getErrorMessage(err), 'error');
+  }
 }
 
-async function clearAllUserData() {
-  if (confirm("DANGER: Are you sure you want to permanently clear ALL your data? This action CANNOT be undone.")) {
-    const doubleCheck = prompt("Type 'DELETE' to confirm:");
-    if (doubleCheck === 'DELETE') {
-      try {
-        showSyncStatus('Clearing...', 'syncing');
-        const pid = state.user.id;
-        await db.from('transactions').delete().eq('profile_id', pid);
-        await db.from('transfers').delete().eq('profile_id', pid);
-        await db.from('budgets').delete().eq('profile_id', pid);
-        await db.from('accounts').delete().eq('profile_id', pid);
-        showToast('All data erased', 'success');
-        await loadAllUserData();
-        renderDashboard();
-      } catch (err) {
-        showToast('Clear failed: ' + err.message, 'error');
-      }
+async function importJson(text) {
+  const data = JSON.parse(text);
+  const db = requireDb();
+  const accounts = Array.isArray(data.accounts) ? data.accounts : [];
+  const categories = Array.isArray(data.categories) ? data.categories : [];
+  const transactions = Array.isArray(data.transactions) ? data.transactions : [];
+  const transfers = Array.isArray(data.transfers) ? data.transfers : [];
+  const budgets = Array.isArray(data.budgets) ? data.budgets : [];
+
+  // Import categories/accounts first and map old IDs to new IDs.
+  const categoryMap = {};
+  for (const old of categories) {
+    if (!old.name || !old.type) continue;
+    const existing = state.categories.find(c => c.name === old.name && c.type === old.type);
+    if (existing) {
+      categoryMap[old.id] = existing.id;
+      continue;
+    }
+    const { data: inserted, error } = await db.from('categories').insert([{
+      profile_id: state.user.id,
+      name: old.name,
+      type: old.type,
+      is_default: Boolean(old.is_default)
+    }]).select().single();
+    if (error) throw error;
+    categoryMap[old.id] = inserted.id;
+  }
+
+  const accountMap = {};
+  for (const old of accounts) {
+    if (!old.account_name || !old.account_type) continue;
+    const existing = state.accounts.find(a => a.account_name === old.account_name && a.account_type === old.account_type);
+    if (existing) {
+      accountMap[old.id] = existing.id;
+      continue;
+    }
+    const { data: inserted, error } = await db.from('accounts').insert([{
+      profile_id: state.user.id,
+      account_name: old.account_name,
+      account_type: old.account_type,
+      provider_name: old.provider_name || null,
+      last_four_digits: old.last_four_digits || null,
+      opening_balance: numberValue(old.opening_balance),
+      currency: old.currency || currency(),
+      notes: old.notes || null,
+      is_active: true
+    }]).select().single();
+    if (error) throw error;
+    accountMap[old.id] = inserted.id;
+  }
+
+  if (Object.keys(accountMap).length === 0 && state.accounts.length === 0) {
+    await ensureDefaultData();
+    await loadAllUserData();
+  }
+
+  const fallbackAccount = state.accounts[0]?.id;
+  const fallbackCategory = state.categories.find(c => c.type === 'Expense')?.id || state.categories[0]?.id;
+
+  if (transactions.length) {
+    const rows = transactions.map(t => ({
+      profile_id: state.user.id,
+      account_id: accountMap[t.account_id] || fallbackAccount,
+      category_id: categoryMap[t.category_id] || fallbackCategory,
+      transaction_date: t.transaction_date || localDateString(),
+      transaction_type: ['Income','Expense','Other Cost'].includes(t.transaction_type) ? t.transaction_type : 'Expense',
+      description: t.description || null,
+      amount: numberValue(t.amount)
+    })).filter(t => t.account_id && t.category_id && t.amount > 0);
+    if (rows.length) {
+      const { error } = await db.from('transactions').insert(rows);
+      if (error) throw error;
+    }
+  }
+
+  if (transfers.length) {
+    const rows = transfers.map(t => ({
+      profile_id: state.user.id,
+      from_account_id: accountMap[t.from_account_id] || fallbackAccount,
+      to_account_id: accountMap[t.to_account_id] || fallbackAccount,
+      transfer_date: t.transfer_date || localDateString(),
+      amount: numberValue(t.amount),
+      note: t.note || null
+    })).filter(t => t.from_account_id && t.to_account_id && t.from_account_id !== t.to_account_id && t.amount > 0);
+    if (rows.length) {
+      const { error } = await db.from('transfers').insert(rows);
+      if (error) throw error;
+    }
+  }
+
+  if (budgets.length) {
+    const rows = budgets.map(b => ({
+      profile_id: state.user.id,
+      month: b.month,
+      category_id: categoryMap[b.category_id] || fallbackCategory,
+      amount: numberValue(b.amount)
+    })).filter(b => /^\d{4}-\d{2}$/.test(b.month) && b.category_id && b.amount >= 0);
+    if (rows.length) {
+      const { error } = await db.from('budgets').upsert(rows, { onConflict: 'profile_id,month,category_id' });
+      if (error) throw error;
     }
   }
 }
 
-// SETTINGS & THEME
+function parseCsv(text) {
+  const rows = [];
+  let row = [], field = '', quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (quoted) {
+      if (ch === '"' && next === '"') { field += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else field += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ',') { row.push(field); field = ''; }
+    else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+    else if (ch !== '\r') field += ch;
+  }
+  row.push(field);
+  if (row.some(v => v !== '')) rows.push(row);
+  return rows;
+}
+
+async function importCsv(text) {
+  const rows = parseCsv(text);
+  if (rows.length < 2) throw new Error('CSV contains no data rows.');
+  const headers = rows[0].map(h => h.trim().toLowerCase());
+  const index = name => headers.indexOf(name);
+  const db = requireDb();
+  const accountId = state.accounts[0]?.id;
+  if (!accountId) throw new Error('Create an account before importing CSV transactions.');
+
+  const imported = [];
+  for (const row of rows.slice(1)) {
+    const date = row[index('date')] || localDateString();
+    const type = row[index('type')] || 'Expense';
+    const accountName = row[index('account')] || '';
+    const categoryName = row[index('category')] || '';
+    const description = row[index('description')] || null;
+    const amount = numberValue(row[index('amount')]);
+    if (!amount || !['Income','Expense','Other Cost'].includes(type)) continue;
+
+    let account = state.accounts.find(a => a.account_name.toLowerCase() === accountName.toLowerCase());
+    if (!account) account = state.accounts[0];
+    let category = state.categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase() && c.type === type);
+    if (!category) category = state.categories.find(c => c.type === type);
+    if (!category) continue;
+    imported.push({
+      profile_id: state.user.id,
+      account_id: account.id,
+      category_id: category.id,
+      transaction_date: date,
+      transaction_type: type,
+      description,
+      amount
+    });
+  }
+  if (imported.length) {
+    const { error } = await db.from('transactions').insert(imported);
+    if (error) throw error;
+  }
+}
+
+async function clearAllUserData() {
+  if (!confirm('DANGER: Are you sure you want to permanently clear ALL your financial data?')) return;
+  if (prompt("Type 'DELETE' to confirm:") !== 'DELETE') return;
+
+  try {
+    showSyncStatus('Clearing...', 'syncing');
+    const db = requireDb();
+    const pid = state.user.id;
+    // Delete dependents first because of foreign-key constraints.
+    for (const table of ['transactions', 'transfers', 'budgets', 'accounts']) {
+      const { error } = await db.from(table).delete().eq('profile_id', pid);
+      if (error) throw error;
+    }
+    const { error: categoryError } = await db.from('categories').delete().eq('profile_id', pid);
+    if (categoryError) throw categoryError;
+    await ensureDefaultData();
+    await loadAllUserData();
+    renderDashboard();
+    showToast('All financial data erased', 'success');
+  } catch (err) {
+    showToast('Clear failed: ' + getErrorMessage(err), 'error');
+  }
+}
+
 function renderSettings() {
-  document.getElementById('set-fullname').value = state.user.full_name;
-  document.getElementById('set-userid').value = state.user.user_id;
-  document.getElementById('set-currency').value = state.user.currency || CONFIG.DEFAULT_CURRENCY;
-  document.getElementById('set-theme').value = state.user.theme || 'system';
+  document.getElementById('set-fullname').value = state.user?.full_name || '';
+  document.getElementById('set-userid').value = state.user?.user_id || '';
+  document.getElementById('set-currency').value = state.user?.currency || CONFIG.DEFAULT_CURRENCY;
+  document.getElementById('set-theme').value = state.user?.theme || 'system';
 }
 
 async function handleSaveSettings(e) {
   e.preventDefault();
-  const currency = document.getElementById('set-currency').value.trim();
+  assertLoggedIn();
+  const currencyValue = document.getElementById('set-currency').value.trim() || CONFIG.DEFAULT_CURRENCY;
   const theme = document.getElementById('set-theme').value;
-
   try {
     showSyncStatus('Saving...', 'syncing');
-    const { error } = await db.from('profiles').update({ currency, theme }).eq('id', state.user.id);
+    const { data, error } = await requireDb().from('profiles')
+      .update({ currency: currencyValue, theme, updated_at: new Date().toISOString() })
+      .eq('id', state.user.id)
+      .select()
+      .single();
     if (error) throw error;
-
-    state.user.currency = currency;
-    state.user.theme = theme;
-    localStorage.setItem('pft_user', JSON.stringify(state.user));
-
+    state.user = data;
+    localStorage.setItem('pft_user', JSON.stringify(data));
     applyTheme(theme);
     showToast('Settings saved', 'success');
     showSyncStatus('Synced', 'synced');
+    renderDashboard();
   } catch (err) {
-    showToast('Settings save failed: ' + err.message, 'error');
+    showToast('Settings save failed: ' + getErrorMessage(err), 'error');
   }
 }
 
 function applyTheme(theme) {
-  if (theme === 'dark') {
-    document.documentElement.setAttribute('data-theme', 'dark');
-  } else if (theme === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
-  } else {
-    applySystemTheme();
-  }
+  if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  else if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  else applySystemTheme();
 }
 
 function applySystemTheme() {
-  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    document.documentElement.setAttribute('data-theme', 'dark');
-  } else {
-    document.documentElement.setAttribute('data-theme', 'light');
-  }
+  const dark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 }
 
-// DROPDOWN POPULATORS & HELPERS
 function populateAccountSelect(elementId) {
   const select = document.getElementById(elementId);
+  if (!select) return;
   select.innerHTML = '';
   state.accounts.forEach(a => {
-    select.innerHTML += `<option value="${a.id}">${a.account_name} (${a.account_type})</option>`;
+    const option = document.createElement('option');
+    option.value = a.id;
+    option.textContent = `${a.account_name} (${a.account_type})`;
+    select.appendChild(option);
   });
 }
 
@@ -1123,33 +1423,47 @@ function populateCategorySelect() {
   const select = document.getElementById('tx-category');
   select.innerHTML = '';
   state.categories.filter(c => c.type === type).forEach(c => {
-    select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+    const option = document.createElement('option');
+    option.value = c.id;
+    option.textContent = c.name;
+    select.appendChild(option);
   });
 }
 
-function populateFilterDropdowns() {
+function populateFilterDropdowns(force = false) {
   const accSel = document.getElementById('filter-account');
   const catSel = document.getElementById('filter-category');
-
-  if (accSel.options.length <= 1) {
-    state.accounts.forEach(a => { accSel.innerHTML += `<option value="${a.id}">${a.account_name}</option>`; });
+  if (force) {
+    accSel.innerHTML = '<option value="">All Accounts</option>';
+    catSel.innerHTML = '<option value="">All Categories</option>';
   }
-  if (catSel.options.length <= 1) {
-    state.categories.forEach(c => { catSel.innerHTML += `<option value="${c.id}">${c.name} (${c.type})</option>`; });
-  }
+  const existingAccounts = new Set([...accSel.options].map(o => o.value));
+  state.accounts.forEach(a => {
+    if (!existingAccounts.has(a.id)) {
+      accSel.insertAdjacentHTML('beforeend', `<option value="${a.id}">${escapeHtml(a.account_name)}</option>`);
+    }
+  });
+  const existingCategories = new Set([...catSel.options].map(o => o.value));
+  state.categories.forEach(c => {
+    if (!existingCategories.has(c.id)) {
+      catSel.insertAdjacentHTML('beforeend', `<option value="${c.id}">${escapeHtml(c.name)} (${escapeHtml(c.type)})</option>`);
+    }
+  });
 }
 
-function showSyncStatus(msg, stateClass) {
+function showSyncStatus(message, stateClass) {
   const el = document.getElementById('sync-status');
-  el.textContent = msg;
+  if (!el) return;
+  el.textContent = message;
   el.className = `badge badge-${stateClass}`;
 }
 
 function showToast(message, type = 'info') {
   const container = document.getElementById('toast-container');
+  if (!container) return;
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   toast.textContent = message;
   container.appendChild(toast);
-  setTimeout(() => toast.remove(), 3000);
+  setTimeout(() => toast.remove(), 4500);
 }
