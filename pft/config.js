@@ -1,6 +1,6 @@
-p// Supabase Public Configuration
+// Supabase Public Configuration
 const CONFIG = {
-  SUPABASE_URL: "https://kmtubcmuitlyjrvotixg.supabase.co/rest/v1/",
+  SUPABASE_URL: "https://kmtubcmuitlyjrvotixg.supabase.co", // Removed '/rest/v1/'
   SUPABASE_ANON_KEY: "sb_publishable_RLp83gLkdcHM9yZV3jMuJQ_OQLCgpg0",
   DEFAULT_CURRENCY: "৳"
 };
