@@ -490,4 +490,666 @@ function renderTransfers() {
       <td><strong>${curr}${parseFloat(tr.amount).toFixed(2)}</strong></td>
       <td>
         <button class="btn btn-sm btn-outline" onclick="editTransfer('${tr.id}')">Edit</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteTransfer('${tr.id}')
+        <button class="btn btn-sm btn-danger" onclick="deleteTransfer('${tr.id}')">Delete</button>
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+function renderMonthlySummary() {
+  const selectedMonth = document.getElementById('summary-month-select').value;
+  if (!selectedMonth) return;
+
+  const year = selectedMonth.split('-')[0];
+  document.getElementById('summary-year-label').textContent = year;
+  const curr = state.user.currency || CONFIG.DEFAULT_CURRENCY;
+
+  let mInc = 0, mExp = 0, mOth = 0;
+  state.transactions.forEach(t => {
+    if (t.transaction_date.startsWith(selectedMonth)) {
+      const amt = parseFloat(t.amount) || 0;
+      if (t.transaction_type === 'Income') mInc += amt;
+      else if (t.transaction_type === 'Expense') mExp += amt;
+      else if (t.transaction_type === 'Other Cost') mOth += amt;
+    }
+  });
+
+  document.getElementById('sm-income').textContent = `${curr}${mInc.toFixed(2)}`;
+  document.getElementById('sm-expense').textContent = `${curr}${mExp.toFixed(2)}`;
+  document.getElementById('sm-other').textContent = `${curr}${mOth.toFixed(2)}`;
+  document.getElementById('sm-net').textContent = `${curr}${(mInc - mExp - mOth).toFixed(2)}`;
+
+  // Render Yearly Breakdown Matrix
+  const tbody = document.getElementById('yearly-summary-table');
+  tbody.innerHTML = '';
+
+  const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  months.forEach((m, idx) => {
+    const key = `${year}-${m}`;
+    let inc = 0, exp = 0, oth = 0;
+
+    state.transactions.forEach(t => {
+      if (t.transaction_date.startsWith(key)) {
+        const amt = parseFloat(t.amount) || 0;
+        if (t.transaction_type === 'Income') inc += amt;
+        else if (t.transaction_type === 'Expense') exp += amt;
+        else if (t.transaction_type === 'Other Cost') oth += amt;
+      }
+    });
+
+    const net = inc - exp - oth;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${monthNames[idx]} ${year}</strong></td>
+      <td class="text-success">${curr}${inc.toFixed(2)}</td>
+      <td class="text-danger">${curr}${exp.toFixed(2)}</td>
+      <td class="text-warning">${curr}${oth.toFixed(2)}</td>
+      <td><strong>${curr}${net.toFixed(2)}</strong></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function shiftSummaryMonth(delta) {
+  const el = document.getElementById('summary-month-select');
+  if (!el.value) return;
+  const [y, m] = el.value.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  el.value = d.toISOString().slice(0, 7);
+  renderMonthlySummary();
+}
+
+// CHARTS & REPORTS INTEGRATION
+function renderReports() {
+  if (typeof Chart === 'undefined') {
+    console.warn("Chart.js failed to load. Reports charts bypassed safely.");
+    return;
+  }
+
+  const curr = state.user.currency || CONFIG.DEFAULT_CURRENCY;
+
+  // 1. Expense by Category
+  const catTotals = {};
+  state.transactions.filter(t => t.transaction_type === 'Expense').forEach(t => {
+    const cat = state.categories.find(c => c.id === t.category_id);
+    const catName = cat ? cat.name : 'Other';
+    catTotals[catName] = (catTotals[catName] || 0) + parseFloat(t.amount);
+  });
+
+  renderChart('chart-cat-exp', 'doughnut', {
+    labels: Object.keys(catTotals),
+    datasets: [{
+      data: Object.values(catTotals),
+      backgroundColor: ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#06b6d4', '#6366f1', '#a855f7']
+    }]
+  });
+
+  // 2. Account Balance Distribution
+  const balances = calculateAccountBalances();
+  const accLabels = [];
+  const accData = [];
+  state.accounts.forEach(a => {
+    accLabels.push(a.account_name);
+    accData.push(balances[a.id] || 0);
+  });
+
+  renderChart('chart-acc-dist', 'pie', {
+    labels: accLabels,
+    datasets: [{
+      data: accData,
+      backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899']
+    }]
+  });
+
+  // 3. Monthly Income vs Expense (Last 6 months)
+  const last6Months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    last6Months.push(d.toISOString().slice(0, 7));
+  }
+
+  const incData = [], expData = [];
+  last6Months.forEach(m => {
+    let inc = 0, exp = 0;
+    state.transactions.forEach(t => {
+      if (t.transaction_date.startsWith(m)) {
+        if (t.transaction_type === 'Income') inc += parseFloat(t.amount);
+        else if (t.transaction_type === 'Expense') exp += parseFloat(t.amount);
+      }
+    });
+    incData.push(inc);
+    expData.push(exp);
+  });
+
+  renderChart('chart-inc-exp', 'bar', {
+    labels: last6Months,
+    datasets: [
+      { label: 'Income', data: incData, backgroundColor: '#16a34a' },
+      { label: 'Expense', data: expData, backgroundColor: '#dc2626' }
+    ]
+  });
+}
+
+function renderChart(canvasId, type, data) {
+  if (state.charts[canvasId]) state.charts[canvasId].destroy();
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  state.charts[canvasId] = new Chart(ctx, {
+    type: type,
+    data: data,
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+}
+
+function renderBudgets() {
+  const selectedMonth = document.getElementById('budget-month-select').value;
+  const container = document.getElementById('budgets-container');
+  container.innerHTML = '';
+  const curr = state.user.currency || CONFIG.DEFAULT_CURRENCY;
+
+  const monthBudgets = state.budgets.filter(b => b.month === selectedMonth);
+
+  if (monthBudgets.length === 0) {
+    container.innerHTML = `<div class="card" style="grid-column:1/-1;">No budgets set for ${selectedMonth}. Click "+ Set Category Budget" to create one.</div>`;
+    return;
+  }
+
+  monthBudgets.forEach(b => {
+    const cat = state.categories.find(c => c.id === b.category_id);
+    const catName = cat ? cat.name : 'Unknown Category';
+
+    // Calculate actual spending for this category in this month
+    let actual = 0;
+    state.transactions.forEach(t => {
+      if (t.category_id === b.category_id && t.transaction_date.startsWith(selectedMonth) && t.transaction_type === 'Expense') {
+        actual += parseFloat(t.amount);
+      }
+    });
+
+    const budgetAmount = parseFloat(b.amount);
+    const remaining = budgetAmount - actual;
+    const percentage = budgetAmount > 0 ? Math.min(Math.round((actual / budgetAmount) * 100), 100) : 0;
+
+    let fillClass = '';
+    if (percentage >= 100) fillClass = 'danger';
+    else if (percentage >= 80) fillClass = 'warning';
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div style="display:flex; justify-between; align-items:center;">
+        <h4>${catName}</h4>
+        <span class="badge ${remaining < 0 ? 'badge-error' : 'badge-synced'}">${percentage}% Used</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill ${fillClass}" style="width: ${percentage}%;"></div>
+      </div>
+      <p class="card-subtitle">Budget: ${curr}${budgetAmount.toFixed(2)} | Actual: ${curr}${actual.toFixed(2)}</p>
+      <p class="card-subtitle" style="margin-top:4px;"><strong>Remaining: ${curr}${remaining.toFixed(2)}</strong></p>
+    `;
+    container.appendChild(card);
+  });
+}
+
+// MODAL OPENERS & HANDLERS
+function openTransactionModal(editId = null) {
+  populateAccountSelect('tx-account');
+  populateCategorySelect();
+  document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
+
+  if (editId) {
+    const tx = state.transactions.find(t => t.id === editId);
+    if (tx) {
+      document.getElementById('tx-id').value = tx.id;
+      document.getElementById('tx-date').value = tx.transaction_date;
+      document.getElementById('tx-type').value = tx.transaction_type;
+      populateCategorySelect();
+      document.getElementById('tx-account').value = tx.account_id;
+      document.getElementById('tx-category').value = tx.category_id;
+      document.getElementById('tx-amount').value = tx.amount;
+      document.getElementById('tx-desc').value = tx.description || '';
+      document.getElementById('tx-modal-title').textContent = 'Edit Transaction';
+    }
+  } else {
+    document.getElementById('tx-id').value = '';
+    document.getElementById('tx-form').reset();
+    document.getElementById('tx-modal-title').textContent = 'Add Transaction';
+    document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
+  }
+
+  document.getElementById('modal-tx').classList.add('active');
+}
+
+function openAccountModal(editId = null) {
+  if (editId) {
+    const acc = state.accounts.find(a => a.id === editId);
+    if (acc) {
+      document.getElementById('acc-id').value = acc.id;
+      document.getElementById('acc-name').value = acc.account_name;
+      document.getElementById('acc-type').value = acc.account_type;
+      document.getElementById('acc-provider').value = acc.provider_name || '';
+      document.getElementById('acc-digits').value = acc.last_four_digits || '';
+      document.getElementById('acc-opening').value = acc.opening_balance;
+      document.getElementById('acc-notes').value = acc.notes || '';
+      document.getElementById('acc-modal-title').textContent = 'Edit Account';
+    }
+  } else {
+    document.getElementById('acc-id').value = '';
+    document.getElementById('acc-form').reset();
+    document.getElementById('acc-modal-title').textContent = 'Add Financial Account';
+  }
+  document.getElementById('modal-account').classList.add('active');
+}
+
+function openTransferModal(editId = null) {
+  populateAccountSelect('tr-from');
+  populateAccountSelect('tr-to');
+  document.getElementById('tr-date').value = new Date().toISOString().slice(0, 10);
+
+  if (editId) {
+    const tr = state.transfers.find(t => t.id === editId);
+    if (tr) {
+      document.getElementById('transfer-id').value = tr.id;
+      document.getElementById('tr-date').value = tr.transfer_date;
+      document.getElementById('tr-from').value = tr.from_account_id;
+      document.getElementById('tr-to').value = tr.to_account_id;
+      document.getElementById('tr-amount').value = tr.amount;
+      document.getElementById('tr-note').value = tr.note || '';
+      document.getElementById('transfer-modal-title').textContent = 'Edit Transfer';
+    }
+  } else {
+    document.getElementById('transfer-id').value = '';
+    document.getElementById('transfer-form').reset();
+    document.getElementById('transfer-modal-title').textContent = 'New Account Transfer';
+    document.getElementById('tr-date').value = new Date().toISOString().slice(0, 10);
+  }
+
+  document.getElementById('modal-transfer').classList.add('active');
+}
+
+function openBudgetModal() {
+  const select = document.getElementById('budget-form-category');
+  select.innerHTML = '';
+  state.categories.filter(c => c.type === 'Expense').forEach(c => {
+    select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+  });
+  document.getElementById('budget-form-month').value = new Date().toISOString().slice(0, 7);
+  document.getElementById('modal-budget').classList.add('active');
+}
+
+function closeModal(modalId) {
+  document.getElementById(modalId).classList.remove('active');
+}
+
+// PERSISTENCE ACTIONS (AUTO-SAVE TO SUPABASE)
+async function handleSaveTransaction(e) {
+  e.preventDefault();
+  const id = document.getElementById('tx-id').value;
+  const payload = {
+    profile_id: state.user.id,
+    transaction_date: document.getElementById('tx-date').value,
+    transaction_type: document.getElementById('tx-type').value,
+    account_id: document.getElementById('tx-account').value,
+    category_id: document.getElementById('tx-category').value,
+    amount: parseFloat(document.getElementById('tx-amount').value),
+    description: document.getElementById('tx-desc').value.trim()
+  };
+
+  try {
+    showSyncStatus('Saving...', 'syncing');
+    if (id) {
+      const { error } = await db.from('transactions').update(payload).eq('id', id);
+      if (error) throw error;
+    } else {
+      const { error } = await db.from('transactions').insert([payload]);
+      if (error) throw error;
+    }
+    closeModal('modal-tx');
+    await loadAllUserData();
+    renderTransactions();
+    renderDashboard();
+    showToast('Transaction saved', 'success');
+  } catch (err) {
+    showToast('Save failed: ' + err.message, 'error');
+  }
+}
+
+async function handleSaveAccount(e) {
+  e.preventDefault();
+  const id = document.getElementById('acc-id').value;
+  const payload = {
+    profile_id: state.user.id,
+    account_name: document.getElementById('acc-name').value.trim(),
+    account_type: document.getElementById('acc-type').value,
+    provider_name: document.getElementById('acc-provider').value.trim(),
+    last_four_digits: document.getElementById('acc-digits').value.trim() || null,
+    opening_balance: parseFloat(document.getElementById('acc-opening').value) || 0,
+    notes: document.getElementById('acc-notes').value.trim()
+  };
+
+  try {
+    showSyncStatus('Saving...', 'syncing');
+    if (id) {
+      const { error } = await db.from('accounts').update(payload).eq('id', id);
+      if (error) throw error;
+    } else {
+      const { error } = await db.from('accounts').insert([payload]);
+      if (error) throw error;
+    }
+    closeModal('modal-account');
+    await loadAllUserData();
+    renderAccounts();
+    renderDashboard();
+    showToast('Account saved', 'success');
+  } catch (err) {
+    showToast('Save failed: ' + err.message, 'error');
+  }
+}
+
+async function handleSaveTransfer(e) {
+  e.preventDefault();
+  const id = document.getElementById('transfer-id').value;
+  const fromId = document.getElementById('tr-from').value;
+  const toId = document.getElementById('tr-to').value;
+  const amount = parseFloat(document.getElementById('tr-amount').value);
+
+  if (fromId === toId) {
+    showToast('Source and destination accounts must be different', 'error');
+    return;
+  }
+
+  // Prevent Transfer above available balance
+  const balances = calculateAccountBalances();
+  if (balances[fromId] < amount) {
+    if (!confirm('Warning: Transfer amount exceeds available balance in source account. Proceed anyway?')) {
+      return;
+    }
+  }
+
+  const payload = {
+    profile_id: state.user.id,
+    from_account_id: fromId,
+    to_account_id: toId,
+    transfer_date: document.getElementById('tr-date').value,
+    amount: amount,
+    note: document.getElementById('tr-note').value.trim()
+  };
+
+  try {
+    showSyncStatus('Saving...', 'syncing');
+    if (id) {
+      const { error } = await db.from('transfers').update(payload).eq('id', id);
+      if (error) throw error;
+    } else {
+      const { error } = await db.from('transfers').insert([payload]);
+      if (error) throw error;
+    }
+    closeModal('modal-transfer');
+    await loadAllUserData();
+    renderTransfers();
+    renderDashboard();
+    showToast('Transfer completed', 'success');
+  } catch (err) {
+    showToast('Transfer failed: ' + err.message, 'error');
+  }
+}
+
+async function handleSaveBudget(e) {
+  e.preventDefault();
+  const payload = {
+    profile_id: state.user.id,
+    month: document.getElementById('budget-form-month').value,
+    category_id: document.getElementById('budget-form-category').value,
+    amount: parseFloat(document.getElementById('budget-form-amount').value)
+  };
+
+  try {
+    showSyncStatus('Saving...', 'syncing');
+    const { error } = await db.from('budgets').upsert(payload, { onConflict: 'profile_id,month,category_id' });
+    if (error) throw error;
+    closeModal('modal-budget');
+    await loadAllUserData();
+    renderBudgets();
+    showToast('Budget saved', 'success');
+  } catch (err) {
+    showToast('Budget save failed: ' + err.message, 'error');
+  }
+}
+
+// EDIT / DELETE HELPERS
+function editTransaction(id) { openTransactionModal(id); }
+async function deleteTransaction(id) {
+  if (!confirm('Are you sure you want to delete this transaction?')) return;
+  try {
+    showSyncStatus('Deleting...', 'syncing');
+    await db.from('transactions').delete().eq('id', id);
+    await loadAllUserData();
+    renderTransactions();
+    renderDashboard();
+    showToast('Transaction deleted', 'success');
+  } catch (err) {
+    showToast('Delete failed: ' + err.message, 'error');
+  }
+}
+
+function editAccount(id) { openAccountModal(id); }
+async function deactivateAccount(id) {
+  if (!confirm('Are you sure you want to deactivate this account?')) return;
+  try {
+    showSyncStatus('Updating...', 'syncing');
+    await db.from('accounts').update({ is_active: false }).eq('id', id);
+    await loadAllUserData();
+    renderAccounts();
+    renderDashboard();
+    showToast('Account deactivated', 'success');
+  } catch (err) {
+    showToast('Deactivation failed: ' + err.message, 'error');
+  }
+}
+
+function editTransfer(id) { openTransferModal(id); }
+async function deleteTransfer(id) {
+  if (!confirm('Are you sure you want to delete this transfer?')) return;
+  try {
+    showSyncStatus('Deleting...', 'syncing');
+    await db.from('transfers').delete().eq('id', id);
+    await loadAllUserData();
+    renderTransfers();
+    renderDashboard();
+    showToast('Transfer deleted', 'success');
+  } catch (err) {
+    showToast('Delete failed: ' + err.message, 'error');
+  }
+}
+
+// BACKUP & EXPORT
+function exportData(type) {
+  if (type === 'json') {
+    const fullBackup = {
+      profile: state.user,
+      accounts: state.accounts,
+      categories: state.categories,
+      transactions: state.transactions,
+      transfers: state.transfers,
+      budgets: state.budgets,
+      exported_at: new Date().toISOString()
+    };
+    downloadFile(`finance_backup_${state.user.user_id}.json`, JSON.stringify(fullBackup, null, 2), 'application/json');
+  } else if (type === 'csv') {
+    let csv = 'date,type,account,category,description,amount\n';
+    state.transactions.forEach(t => {
+      const acc = state.accounts.find(a => a.id === t.account_id);
+      const cat = state.categories.find(c => c.id === t.category_id);
+      csv += `"${t.transaction_date}","${t.transaction_type}","${acc ? acc.account_name : ''}","${cat ? cat.name : ''}","${t.description || ''}",${t.amount}\n`;
+    });
+    downloadFile(`transactions_${state.user.user_id}.csv`, csv, 'text/csv');
+  }
+}
+
+function downloadFile(filename, text, mimeType) {
+  const element = document.createElement('a');
+  element.setAttribute('href', `data:${mimeType};charset=utf-8,` + encodeURIComponent(text));
+  element.setAttribute('download', filename);
+  element.style.display = 'none';
+  document.body.appendChild(element);
+  element.click();
+  document.body.removeChild(element);
+}
+
+async function importData() {
+  const fileInput = document.getElementById('import-file-input');
+  if (!fileInput.files.length) {
+    showToast('Please select a file to import', 'error');
+    return;
+  }
+
+  if (!confirm('Importing data will merge records into your account. Continue?')) return;
+
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+
+  reader.onload = async (e) => {
+    try {
+      showSyncStatus('Importing...', 'syncing');
+      if (file.name.endsWith('.json')) {
+        const data = JSON.parse(e.target.result);
+        if (data.transactions && Array.isArray(data.transactions)) {
+          const txsToInsert = data.transactions.map(t => ({
+            profile_id: state.user.id,
+            account_id: state.accounts[0].id, // Safely fallback to primary account
+            category_id: state.categories[0].id,
+            transaction_date: t.transaction_date || new Date().toISOString().slice(0,10),
+            transaction_type: t.transaction_type || 'Expense',
+            description: t.description || 'Imported Transaction',
+            amount: parseFloat(t.amount) || 0
+          }));
+          await db.from('transactions').insert(txsToInsert);
+        }
+      }
+      showToast('Import completed successfully', 'success');
+      await loadAllUserData();
+      renderDashboard();
+    } catch (err) {
+      showToast('Import error: ' + err.message, 'error');
+    }
+  };
+
+  reader.readAsText(file);
+}
+
+async function clearAllUserData() {
+  if (confirm("DANGER: Are you sure you want to permanently clear ALL your data? This action CANNOT be undone.")) {
+    const doubleCheck = prompt("Type 'DELETE' to confirm:");
+    if (doubleCheck === 'DELETE') {
+      try {
+        showSyncStatus('Clearing...', 'syncing');
+        const pid = state.user.id;
+        await db.from('transactions').delete().eq('profile_id', pid);
+        await db.from('transfers').delete().eq('profile_id', pid);
+        await db.from('budgets').delete().eq('profile_id', pid);
+        await db.from('accounts').delete().eq('profile_id', pid);
+        showToast('All data erased', 'success');
+        await loadAllUserData();
+        renderDashboard();
+      } catch (err) {
+        showToast('Clear failed: ' + err.message, 'error');
+      }
+    }
+  }
+}
+
+// SETTINGS & THEME
+function renderSettings() {
+  document.getElementById('set-fullname').value = state.user.full_name;
+  document.getElementById('set-userid').value = state.user.user_id;
+  document.getElementById('set-currency').value = state.user.currency || CONFIG.DEFAULT_CURRENCY;
+  document.getElementById('set-theme').value = state.user.theme || 'system';
+}
+
+async function handleSaveSettings(e) {
+  e.preventDefault();
+  const currency = document.getElementById('set-currency').value.trim();
+  const theme = document.getElementById('set-theme').value;
+
+  try {
+    showSyncStatus('Saving...', 'syncing');
+    const { error } = await db.from('profiles').update({ currency, theme }).eq('id', state.user.id);
+    if (error) throw error;
+
+    state.user.currency = currency;
+    state.user.theme = theme;
+    localStorage.setItem('pft_user', JSON.stringify(state.user));
+
+    applyTheme(theme);
+    showToast('Settings saved', 'success');
+    showSyncStatus('Synced', 'synced');
+  } catch (err) {
+    showToast('Settings save failed: ' + err.message, 'error');
+  }
+}
+
+function applyTheme(theme) {
+  if (theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else {
+    applySystemTheme();
+  }
+}
+
+function applySystemTheme() {
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+}
+
+// DROPDOWN POPULATORS & HELPERS
+function populateAccountSelect(elementId) {
+  const select = document.getElementById(elementId);
+  select.innerHTML = '';
+  state.accounts.forEach(a => {
+    select.innerHTML += `<option value="${a.id}">${a.account_name} (${a.account_type})</option>`;
+  });
+}
+
+function populateCategorySelect() {
+  const type = document.getElementById('tx-type').value;
+  const select = document.getElementById('tx-category');
+  select.innerHTML = '';
+  state.categories.filter(c => c.type === type).forEach(c => {
+    select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+  });
+}
+
+function populateFilterDropdowns() {
+  const accSel = document.getElementById('filter-account');
+  const catSel = document.getElementById('filter-category');
+
+  if (accSel.options.length <= 1) {
+    state.accounts.forEach(a => { accSel.innerHTML += `<option value="${a.id}">${a.account_name}</option>`; });
+  }
+  if (catSel.options.length <= 1) {
+    state.categories.forEach(c => { catSel.innerHTML += `<option value="${c.id}">${c.name} (${c.type})</option>`; });
+  }
+}
+
+function showSyncStatus(msg, stateClass) {
+  const el = document.getElementById('sync-status');
+  el.textContent = msg;
+  el.className = `badge badge-${stateClass}`;
+}
+
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
